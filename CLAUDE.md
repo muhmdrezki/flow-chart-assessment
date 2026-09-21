@@ -210,6 +210,11 @@ Work one feature at a time, in the brief's build order.
   (e.g. `feature/01-scaffold-canvas`). Fixes use `fix/<topic>` and docs-only work uses `docs/<topic>`.
 - A feature is merged into `main` **only through a GitHub Pull Request**. The PR description links the spec,
   summarises the changes, lists the tests added and ticks off the spec's acceptance criteria.
+- **Keep PRs small and reviewable.** Split a feature into stacked PRs by layer, e.g.
+  `feature/01a-foundation` (utils) → `feature/01b-data-layer` (api/store/composables) →
+  `feature/01c-canvas-ui` (components/views). Each PR is based on the previous one, ships its own
+  tests, and passes lint and tests on its own. Merge them in order. When a base branch is deleted
+  after merging, GitHub retargets the next PR to `main`.
 - After merge: pull `main` and delete the feature branch.
 - Commits, pushes, opening PRs and merging all happen **only when the user asks**.
 
