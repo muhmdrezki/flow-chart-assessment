@@ -15,13 +15,45 @@ Every change should read like senior, idiomatic Vue.
 
 If this file disagrees with the specs, the specs win. Flag the conflict and don't pick one silently.
 
+## Original brief: key points
+
+The user has the original brief (respond.io PDF). It isn't committed, because the repo is public and the
+document is theirs. Where it differs from summaries, **the original wins**:
+
+- **Only Success & Failure** are explicitly "not accessible, purely for display in canvas". The brief
+  doesn't mark the Trigger as non-editable. That's our decision (Spec 04) and must be justified.
+- The drawer is "accessible via URL containing the node ID" and "**toggled** by clicking on the node":
+  clicking the open node again closes it. It displays the node's "properties and attachments".
+- Nodes show: icon, title, truncated description. The create form's types are `sendMessage`,
+  `addComment` and `businessHours` (stored in the payload as `dateTime` + `action: 'businessHours'`).
+- **localStorage persistence is not in the brief.** If we add it, it's our design decision and must
+  be explained in the README.
+- Key details: "buttery smooth" canvas↔drawer transition, validation on all inputs, optimized renders,
+  utility functions in separate files, comprehensive unit tests, Pinia for data, Vue Router for routing,
+  custom implementation (no copied open-source code), clear README.
+- Nice to have: undo/redo for moves and edits, keyboard accessibility (select node, open drawer), CI.
+- Delivery: public GitHub repo + Vercel.
+
+**Mockup** (the brief says "feel free to adopt or create your own"):
+- A top-down tree: Trigger → Business Hours → split → Welcome / Away Message → Add Comment.
+- Success/Failure are drawn as **small pill labels** on the branch lines, not full cards.
+- Each kind has its own icon and accent colour: Trigger pink ⚡, Business Hours orange 📅, Send Message
+  teal ➤, Comment blue 💬. Edges take their source node's colour.
+- Card descriptions: "Conversation Opened", "Business Hours - UTC", "Message: <text or attachment
+  file name>", and the comment text.
+- "+" buttons on edges and under leaves (not required; a possible way to create a node at a spot).
+- Business Hours drawer: header plus description ("Allows a branch to be created based on date & time
+  conditions…"), a Day | Time grid with `HH:mm ⏱ to HH:mm ⏱` for Mon–Sun, and a Time Zone select
+  like `(GMT+00:00) UTC`.
+
 ## Stack (fixed, do not substitute or add alternatives)
 
 - Vite + Vue 3: Composition API, `<script setup>` only, no Options API
 - JavaScript (ES modules). No TypeScript. Use JSDoc `@typedef` / `@param` for the domain shapes.
 - Pinia (setup-store syntax), Vue Router, `@vue-flow/core`
 - `@tanstack/vue-query` for loading and mutations
-- Tailwind CSS for styling. No component library: build the drawer, form controls and pickers ourselves.
+- Tailwind CSS v4 for styling (see Styling). No component library: build the drawer, form controls and
+  pickers ourselves in `components/ui/`.
 - Vitest + `@vue/test-utils` (jsdom)
 - npm
 
@@ -85,19 +117,61 @@ Keep the payload's exact structure and don't invent a new schema. Adapt it at th
 - Payload type → UI kind:
   | payload `type` | discriminator | UI kind | editable |
   |---|---|---|---|
-  | `trigger` | `data.type` (e.g. `conversationOpened`) | trigger | no |
+  | `trigger` | `data.type` (e.g. `conversationOpened`) | trigger | proposed no (decided in Spec 04) |
   | `sendMessage` | `data.payload[]` of `{type:'text',text}` / `{type:'attachment',attachment}` | sendMessage | yes |
   | `addComment` | `data.comment` | addComment | yes |
   | `dateTime` | `data.action === 'businessHours'`, `data.times[]`, `data.timezone`, `data.connectors[]` | businessHours | yes |
   | `dateTimeConnector` | `data.connectorType: 'success' \| 'failure'` | success / failure | no |
 - No node has a `description`, and the trigger has no `name`. Titles and descriptions are **derived**
-  when missing (see the design spec). A user-entered description is stored additively on
+  when missing (see Spec 01/02). A user-entered description is stored additively on
   `data.description`.
 - `times[]` entries are `{ day: 'mon'..'sun', startTime: 'HH:mm', endTime: 'HH:mm' }`.
 
+## Component structure
+
+Two layers, with no strict atomic levels:
+
+```
+src/components/
+  ui/          reusable, domain-free kit (atoms + molecules): BaseButton, BaseInput, FormField, BaseDrawer…
+  canvas/      feature components (domain-aware), built from ui/
+  nodes/
+  drawer/ forms/ …
+src/views/     route-level pages
+```
+
+**Every component (ui, feature or view) lives in its own folder:**
+
+```
+BaseButton/
+  BaseButton.vue       the component; named file, so tabs, devtools and warnings show "BaseButton"
+  BaseButton.spec.js   its unit tests
+  BaseButton.css       ONLY if Tailwind can't express it (transitions, Vue Flow overrides)
+```
+
+- Import the file directly: `import BaseButton from '@/components/ui/BaseButton/BaseButton.vue'`. No `index.js`
+  barrel files: they only shorten import paths and add a file per component.
+- Name the file after the component, not `index.vue`: Vue infers the component name from the file name,
+  so tabs, devtools and warnings show "BaseButton" rather than "Index".
+- **`ui/` rules:** no store, router, Query or node-type imports. Only props, emits, slots and
+  `defineModel`. Accessible by default (labels, `aria-invalid`, `aria-describedby`, visible focus).
+  Variants and Tailwind classes live inside the component. Feature components compose `ui/` and
+  don't restyle it.
+- **Build a component when a spec first needs it,** never ahead of time.
+- Utils, stores, composables, api and router stay single files, with `xxx.spec.js` beside them.
+
+## Styling
+
+- Tailwind utilities in templates are the default.
+- Plain CSS (a component `.css` file, or `src/assets/main.css` for globals and Vue Flow theming)
+  only where Tailwind can't express something. **No SCSS/Sass:** Tailwind v4 isn't designed to run
+  with preprocessors.
+- Colours are CSS custom properties (e.g. `--color-kind-<kind>`), shared by nodes and edges.
+
 ## Conventions
 
-- File naming: components `PascalCase.vue`, everything else `camelCase.js`, stores `useXxxStore`.
+- File naming: components `PascalCase.vue` in a `PascalCase/` folder, everything else `camelCase.js`,
+  stores `useXxxStore`.
 - Composables in `src/composables/` are named `useXxx`. The query/mutation hooks live there.
 - Props down, events up. No prop mutation. Use `defineModel` for two-way form bindings.
 - Use `computed` for derived values and `shallowRef` / `markRaw` where deep reactivity isn't needed
@@ -112,7 +186,11 @@ Keep the payload's exact structure and don't invent a new schema. Adapt it at th
 
 Tests are heavily weighted in grading.
 
-- Tests sit next to the source as `*.spec.js`.
+- Tests sit next to the source as `*.spec.js`: inside the component's folder for components, and
+  beside the file for utils, stores and composables. (The brief requires comprehensive unit tests but
+  not where they go. Putting them next to the source is our choice.)
+- **ui/ components:** every variant/prop, `v-model` round-trip, emitted events, slots, error display,
+  and a11y attributes.
 - **Utils:** full unit coverage, including edge cases (mixed id types, missing fields, invalid times).
 - **Store:** every action and getter, using `createPinia()` / `setActivePinia` per test.
 - **Composables:** mutations with a real `QueryClient` per test; assert the store is updated on success.
