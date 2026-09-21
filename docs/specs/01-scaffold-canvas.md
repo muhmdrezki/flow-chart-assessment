@@ -286,6 +286,42 @@ selection, no flicker or re-fit. Check this against the installed version's API 
   `applyDefault`, and apply changes via `@nodes-change` into the store). The store stays the owner
   either way, and this spec gets a design note if we switch.
 
+**Result (2026-09-21, `@vue-flow/core` 1.48.2): passes, so we keep the one-way design.**
+- Code: when the `nodes` prop changes, `parseNode` does `Object.assign(existingNode, ourNode)`. That
+  merges our fields into the existing internal node, which keeps dimensions, selection and handle
+  bounds. The rule that follows: **the adapter must never pass internal keys** (`selected`,
+  `dimensions`, …).
+- Code: when applying a drag, Vue Flow **reassigns** `node.position` rather than mutating it. The
+  adapter copies positions anyway, so Vue Flow never holds a reference to store state.
+- Runtime: after a drag, the store position updated, edges followed, the node stayed selected, and
+  there was no re-fit or flicker. Backspace on a selected node deleted nothing.
+
+### 3.5 Deviations found during implementation
+- `useFlowLoader` also returns `isFetching`. After an error, Vue Query keeps `status: 'error'` while
+  a retry is in flight, so the Retry button uses `isFetching` for its loading state.
+- `hydrate` calls `toRaw(raw)` before normalising. Query data is a reactive proxy, and
+  `structuredClone` throws on proxies (found in the browser, not by the build).
+- `deriveEdges` also skips self-references (`parentId === id`), so no self-loop edge is drawn.
+- The router exports a `createAppRouter(history)` factory, so tests can use memory history.
+
+### 3.6 Code-review fix: payload validation
+The code review found that a malformed payload (e.g. `[null]`) failed **silently**. `fetchFlow` only
+checked for an array, so Query reported success, `hydrate` then threw inside the `watch`, and
+`FlowView` rendered an empty canvas with no error and no Retry.
+
+- `utils/graph.js`: **`findPayloadError(raw) → string | null`** returns the first problem, or null.
+  It checks: the payload is an array; each item is an object; `id` is a non-empty string or finite
+  number and unique (compared as strings); `type` is a non-empty string; `parentId` is a valid id;
+  `name` is a string if present; `data` is an object if present; `data.type` is a string if present.
+  It only checks fields the app reads today. Later specs extend it as they read type-specific fields.
+- `api/flowApi.js`: `fetchFlow` throws **`InvalidPayloadError`** for invalid JSON or a
+  `findPayloadError` result, so bad content becomes a normal query error (error screen + Retry).
+- `api/flowApi.js`: **`shouldRetryFlowFetch(failureCount, error)`** is set as the flow query's
+  `retry`. Invalid content fails immediately, because retrying can't fix it. Other errors keep Query's
+  default of 3 retries. It's a per-query option, so the brief's client config is untouched.
+- `views/FlowView`: renders `FlowCanvas` only when `store.isHydrated`. Otherwise it shows "Couldn't
+  display the flow", so a failed hydrate can never look like an empty flow.
+
 ---
 
 ## 4. Tests (written after code review, per workflow)
@@ -295,31 +331,31 @@ The fixture for the tests is the real `public/payload.json`, imported directly, 
 | file | cases |
 |---|---|
 | `config/queryClient.spec.js` | config deep-equals the brief's exact values |
-| `api/flowApi.spec.js` | ok → returns array; non-ok → throws with status; non-array body → throws |
+| `api/flowApi.spec.js` | ok → returns array; non-ok → throws with status; invalid JSON / invalid payload → throws `InvalidPayloadError`; `shouldRetryFlowFetch`: retries other errors up to 3, never `InvalidPayloadError` |
 | `utils/ids.spec.js` | number and string ids; all root-parent variants; non-root values |
 | `utils/nodeKind.spec.js` | every mapping row in 2.2, including `unknown`; title fallbacks (name → humanised trigger → kind); `getEdgeColourKind` for every kind (connectors → businessHours, unknown → neutral) |
-| `utils/graph.spec.js` | payload → 7 nodes, all ids strings, root `parentId` null, `data` equal but not the same reference; 6 edges with the right pairs; orphans produce no edge; root produces no edge |
+| `utils/graph.spec.js` | `findPayloadError`: real payload → null, and one case per rule (non-array, non-object item, bad/missing/duplicate id incl. `1` vs `"1"`, bad type, bad parentId, bad name, bad data, bad data.type); payload → 7 nodes, all ids strings, root `parentId` null, `data` equal but not the same reference; 6 edges with the right pairs; orphans produce no edge; root produces no edge |
 | `utils/layout.spec.js` | payload layout matches the expected tree shape; root at y=0; child y = parent y + parent height + gap (with default and custom `getNodeSize`); siblings share y and don't overlap; parent centred over children; orphan tree placed beside; cycle terminates; deterministic across calls |
 | `utils/vueFlowAdapter.spec.js` | node mapping shape; edge class from source kind (trigger, businessHours, sendMessage); success/failure sources map to businessHours; unknown source gets neutral class |
 | `components/ui/BaseButton/BaseButton.spec.js` | renders slot; each variant/size applies its classes; default `type="button"`; emits click; `disabled` and `loading` block clicks; `loading` sets `aria-busy` and shows a spinner |
 | `components/ui/BaseSpinner/BaseSpinner.spec.js` | `role="status"`; default and custom label announced |
 | `components/ui/EmptyState/EmptyState.spec.js` | title/message render; `tone="error"` sets `role="alert"`; `actions` slot renders |
-| `stores/flow.spec.js` | hydrate sets nodes + positions + flag; a second hydrate is a no-op; `edges`/`nodeById` react to changes; `updateNodePositions` updates matching nodes and ignores unknown ids |
+| `stores/flow.spec.js` | hydrate sets nodes + positions + flag; hydrate accepts **reactive** input (the proxy bug found in the browser); a second hydrate is a no-op; `edges`/`nodeById` react to changes; `updateNodePositions` updates matching nodes and ignores unknown ids |
 | `composables/useFlowLoader.spec.js` | real `QueryClient` + mocked `fetchFlow`: store hydrated on success; error exposed on failure; remount doesn't re-hydrate |
 | `components/canvas/FlowCanvas/FlowCanvas.spec.js` | VueFlow stubbed: receives mapped nodes/edges; emitting `node-drag-stop` updates the store |
-| `views/FlowView/FlowView.spec.js` | loading renders spinner; error renders alert and Retry calls `refetch`; success renders `FlowCanvas` |
+| `views/FlowView/FlowView.spec.js` | loading renders spinner; error renders alert and Retry calls `refetch`; success + hydrated renders `FlowCanvas`; success but not hydrated renders "Couldn't display the flow" |
 
 ---
 
 ## 5. Acceptance criteria
 
-- [ ] `npm run dev` shows the 7 payload nodes as a top-down tree with 6 edges, coloured by source node kind as in the mockup.
-- [ ] Nodes drag smoothly; after a drag the store holds the new position (checked in Vue devtools).
-- [ ] Dragging never creates or deletes edges; Backspace does nothing to the graph.
-- [ ] Loading and error states render; Retry recovers after a failed fetch.
-- [ ] An unknown path (e.g. `/foo`) redirects to `/`.
-- [ ] The query client config exactly matches the brief.
-- [ ] `npm run lint` is clean; `npm run test:run` is green.
+- [x] `npm run dev` shows the 7 payload nodes as a top-down tree with 6 edges, coloured by source node kind as in the mockup.
+- [x] Nodes drag smoothly; after a drag the store holds the new position (checked in Vue devtools).
+- [x] Dragging never creates or deletes edges; Backspace does nothing to the graph.
+- [x] Loading and error states render; Retry recovers after a failed fetch.
+- [x] An unknown path (e.g. `/foo`) redirects to `/`.
+- [x] The query client config exactly matches the brief.
+- [x] `npm run lint` is clean; `npm run test:run` is green.
 
 ## 6. Decisions in this spec (confirm or change)
 
