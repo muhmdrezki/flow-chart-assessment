@@ -4,6 +4,52 @@ Newest entries first.
 
 ---
 
+## 2026-09-22: Day 2: Features 2b + 2c (node components, canvas wiring)
+
+Branches: `feature/02b-node-components` → `feature/02c-node-canvas` (stacked on 2a)
+
+**Done**
+- 2b: `@lucide/vue` behind `ui/BaseIcon`; `NodeCard` (cards) and `ConnectorNode` (pills), both driven
+  by the registry; `nodeTypes` derived from the registry; final colour palette.
+- 2c: the store's `nodeDisplayById` (titles/descriptions, independent of positions) and registry
+  sizes for the layout; the adapter passes the kind as the Vue Flow type and reuses the display
+  objects; `FlowCanvas` registers `nodeTypes`; Nunito self-hosted via Fontsource; quieter handles.
+- Checked in the browser: the canvas matches the mockup. Nunito loads from the bundle (no external
+  request); editable cards show a pointer and the others the default cursor; the trigger has only an
+  output handle; descriptions clamp at 2 lines; selection shows the accent border; dragging works.
+- Code reviews:
+  - 2b flagged the success/failure colours missing from `main.css`. The palette moved into 2b, so
+    that PR is correct on its own.
+  - 2b noted the components aren't wired in yet, which is by design (2c).
+- Tests: 23 files, 343 tests, all passing.
+- Pushed the 2a → 2b → 2c stack as PRs #4, #5, #6.
+
+**Follow-ups on 2c (after review of the PRs)**
+- Replaced the string regexes in the 2a utilities with step-by-step code: `trimText` (HTML already
+  collapses whitespace), `new URL(url, base)` for attachment names, an explicit
+  `TRIGGER_EVENT_LABELS` table (an i18n library in a real implementation), and a split-and-check
+  `isTimeString`. The code review caught a prototype lookup in the label table, now guarded with
+  `Object.hasOwn`.
+- **Decision 2i:** node components are registered with named slots in `FlowCanvas`
+  (`#node-<type>`), not a generated `nodeTypes` map, so the canvas template shows exactly what renders
+  each kind. `nodeTypes.js` was removed. A test fails if a registered kind has no slot.
+- Tests: 22 files, 357 tests, all passing.
+
+**Issues hit**
+- An HTML comment above the pill's root element made the component render two root nodes, so
+  attributes and classes couldn't be read from its root. The comment moved into the script.
+- With `nodeTypes`, Vue Flow passed every node prop to our components, and `inheritAttrs: false` kept
+  them off the DOM. With slots, only `type`, `data` and `selected` are passed, so that guard was
+  removed.
+- Shell-generated file edits mangled `${…}` template literals and backticks twice. Those files are now
+  written directly.
+
+**Next**
+- Merge #4 → #5 → #6 when the user asks.
+- Then Spec 03: the Create Node form.
+
+---
+
 ## 2026-09-22: Day 2: Feature 2a (node foundation)
 
 Branch: `feature/02a-node-foundation` · Spec: `docs/specs/02-custom-nodes.md` (confirmed)

@@ -22,12 +22,23 @@ describe('isTimeString', () => {
     expect(isTimeString(value)).toBe(true)
   })
 
-  it.each(['24:00', '9:00', '09:60', '0900', '09:00:00', ' 09:00', '', 'noon'])(
-    'rejects %j',
-    (value) => {
-      expect(isTimeString(value)).toBe(false)
-    },
-  )
+  it.each([
+    '24:00',
+    '9:00',
+    '09:5',
+    '09:60',
+    '0900',
+    '09:00:00',
+    ' 09:00',
+    '09: 5',
+    '0a:00',
+    '-1:00',
+    ':',
+    '',
+    'noon',
+  ])('rejects %j', (value) => {
+    expect(isTimeString(value)).toBe(false)
+  })
 
   it.each([900, null, undefined, {}])('rejects non-strings (%j)', (value) => {
     expect(isTimeString(value)).toBe(false)

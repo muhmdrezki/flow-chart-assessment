@@ -1,25 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import payload from '../../public/payload.json'
 import { normalizePayload } from './graph'
-import {
-  collapseWhitespace,
-  getAttachmentName,
-  getNodeDescription,
-  getNodeTitle,
-} from './nodeDescription'
+import { getAttachmentName, getNodeDescription, getNodeTitle, trimText } from './nodeDescription'
 
 const byId = new Map(normalizePayload(payload).map((node) => [node.id, node]))
 const message = (items, extra = {}) => ({ type: 'sendMessage', data: { payload: items, ...extra } })
 
-describe('collapseWhitespace', () => {
-  it('joins lines and collapses runs of whitespace', () => {
-    expect(collapseWhitespace('  Hello there\n\nwelcome\t to  the chat!  ')).toBe(
-      'Hello there welcome to the chat!',
-    )
+describe('trimText', () => {
+  it('trims surrounding whitespace', () => {
+    expect(trimText('  Hello there  ')).toBe('Hello there')
+  })
+
+  it('keeps line breaks inside the text, since HTML collapses them when rendering', () => {
+    expect(trimText('Hello there\n\nwelcome')).toBe('Hello there\n\nwelcome')
+  })
+
+  it('turns blank text into an empty string', () => {
+    expect(trimText(' \n\t ')).toBe('')
   })
 
   it.each([undefined, null, 5, {}])('returns an empty string for non-strings (%j)', (value) => {
-    expect(collapseWhitespace(value)).toBe('')
+    expect(trimText(value)).toBe('')
   })
 })
 
@@ -49,6 +50,10 @@ describe('getAttachmentName', () => {
 
   it('keeps a badly encoded name as it is', () => {
     expect(getAttachmentName('https://cdn.example.com/100%.png')).toBe('100%.png')
+  })
+
+  it('falls back to the raw value when it cannot be parsed', () => {
+    expect(getAttachmentName('http://')).toBe('http://')
   })
 
   it('falls back to the raw value when there is no file name', () => {
@@ -85,7 +90,7 @@ describe('getNodeDescription', () => {
     it.each([
       ['1', 'Conversation Opened'],
       ['b6a0c1', 'Sorry, we are currently away. We will respond as soon as possible.'],
-      ['b0653a', 'Hello there welcome to the chat!'],
+      ['b0653a', 'Hello there\n\nwelcome to the chat!'],
       ['d09c08', 'Business Hours - UTC'],
       ['e879e4', 'User message during off hours'],
       ['161f52', ''],
@@ -162,6 +167,17 @@ describe('getNodeDescription', () => {
     const node = { type: 'dateTime', data: { action: 'businessHours' } }
     expect(getNodeDescription(node)).toBe('Business Hours - UTC')
   })
+
+  it('shows an unlisted trigger event as its identifier', () => {
+    expect(getNodeDescription({ type: 'trigger', data: { type: 'tagAdded' } })).toBe('tagAdded')
+  })
+
+  it.each(['toString', 'constructor', 'hasOwnProperty'])(
+    'never shows a built-in object property for an event named %s',
+    (event) => {
+      expect(getNodeDescription({ type: 'trigger', data: { type: event } })).toBe(event)
+    },
+  )
 
   it('leaves a trigger without an event undescribed', () => {
     expect(getNodeDescription({ type: 'trigger', data: {} })).toBe('')

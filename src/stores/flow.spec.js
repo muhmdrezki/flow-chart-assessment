@@ -82,6 +82,55 @@ describe('useFlowStore', () => {
     })
   })
 
+  describe('nodeDisplayById', () => {
+    beforeEach(() => store.hydrate(payload))
+
+    it('gives every node its title and description', () => {
+      expect(Object.fromEntries(store.nodeDisplayById)).toEqual({
+        1: { title: 'Trigger', description: 'Conversation Opened' },
+        b6a0c1: {
+          title: 'Away Message',
+          description: 'Sorry, we are currently away. We will respond as soon as possible.',
+        },
+        d09c08: { title: 'Business Hours', description: 'Business Hours - UTC' },
+        '161f52': { title: 'Success', description: '' },
+        '28c4b9': { title: 'Failure', description: '' },
+        b0653a: { title: 'Welcome Message', description: 'Hello there\n\nwelcome to the chat!' },
+        e879e4: { title: 'Add Comment #1', description: 'User message during off hours' },
+      })
+    })
+
+    it('is not recomputed when positions change', () => {
+      const before = store.nodeDisplayById
+
+      store.updateNodePositions([{ id: '1', position: { x: 5, y: 5 } }])
+
+      expect(store.nodeDisplayById).toBe(before)
+    })
+
+    it('updates when a node’s text changes', () => {
+      store.nodeById.get('e879e4').data.comment = 'Follow up tomorrow'
+      expect(store.nodeDisplayById.get('e879e4').description).toBe('Follow up tomorrow')
+    })
+  })
+
+  describe('layout sizes', () => {
+    beforeEach(() => store.hydrate(payload))
+    const y = (id) => store.nodeById.get(id).position.y
+
+    it('spaces nodes by the height of their parent, so pills sit closer than cards', () => {
+      const gap = 64
+      expect(y('d09c08') - y('1')).toBe(88 + gap)
+      expect(y('161f52') - y('d09c08')).toBe(88 + gap)
+      expect(y('b0653a') - y('161f52')).toBe(28 + gap)
+    })
+
+    it('centres the narrow pills under their parent card’s slot', () => {
+      const centreX = (id, width) => store.nodeById.get(id).position.x + width / 2
+      expect(centreX('161f52', 96)).toBe(centreX('b0653a', 240))
+    })
+  })
+
   describe('updateNodePositions', () => {
     beforeEach(() => store.hydrate(payload))
 

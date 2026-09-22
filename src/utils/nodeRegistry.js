@@ -80,6 +80,18 @@ export const NODE_REGISTRY = Object.freeze({
 })
 
 /**
+ * Display labels for trigger events (`data.type` of a trigger node). Trigger events are a fixed,
+ * known list, so they're spelled out rather than generated from the identifier. An event missing
+ * here is shown as its raw identifier.
+ *
+ * In a real implementation these would come from an i18n library (e.g. vue-i18n message keys such
+ * as `triggers.conversationOpened`), like the other user-facing labels in this file.
+ */
+export const TRIGGER_EVENT_LABELS = Object.freeze({
+  conversationOpened: 'Conversation Opened',
+})
+
+/**
  * Always returns an entry: nodes of an unrecognised kind get the `unknown` one.
  * @param {{ type?: string, data?: Record<string, any> } | undefined} node
  */

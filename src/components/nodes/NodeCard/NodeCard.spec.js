@@ -106,14 +106,4 @@ describe('NodeCard', () => {
     expect(wrapper.findComponent(BaseIcon).props('name')).toBe('circle-help')
     expect(wrapper.attributes('data-editable')).toBe('false')
   })
-
-  it('does not turn Vue Flow’s other node props into attributes', () => {
-    const wrapper = mount(NodeCard, {
-      props: { type: 'sendMessage', data: { title: 'A', description: '' } },
-      attrs: { position: { x: 1, y: 2 }, dragging: false, connectable: true },
-    })
-
-    expect(wrapper.attributes('position')).toBeUndefined()
-    expect(wrapper.attributes('connectable')).toBeUndefined()
-  })
 })

@@ -6,9 +6,6 @@ import { Handle, Position } from '@vue-flow/core'
 import BaseIcon from '@/components/ui/BaseIcon/BaseIcon.vue'
 import { NODE_REGISTRY } from '@/utils/nodeRegistry'
 
-// See NodeCard: Vue Flow's other node props must not become attributes.
-defineOptions({ inheritAttrs: false })
-
 const props = defineProps({
   type: { type: String, required: true },
   data: { type: Object, required: true },

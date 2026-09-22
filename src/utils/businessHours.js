@@ -7,13 +7,25 @@ export const WEEK_DAYS = Object.freeze(['mon', 'tue', 'wed', 'thu', 'fri', 'sat'
  */
 export const DEFAULT_TIMEZONE = 'UTC'
 
-const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+/** Exactly two characters, both 0–9. Rejects "9", " 9" and "9a" (Number() would accept " 9"). */
+function isTwoDigits(part) {
+  return part.length === 2 && [...part].every((char) => char >= '0' && char <= '9')
+}
 
 /**
  * A 24-hour `HH:mm` time, as the payload stores them ("09:00", "23:59").
+ * Hours run 00–23 and minutes 00–59, so "24:00", "9:00" and "09:00:00" are rejected.
  * @param {unknown} value
  * @returns {boolean}
  */
 export function isTimeString(value) {
-  return typeof value === 'string' && TIME_PATTERN.test(value)
+  if (typeof value !== 'string') return false
+
+  const parts = value.split(':')
+  if (parts.length !== 2) return false
+
+  const [hours, minutes] = parts
+  if (!isTwoDigits(hours) || !isTwoDigits(minutes)) return false
+
+  return Number(hours) <= 23 && Number(minutes) <= 59
 }

@@ -40,17 +40,6 @@ export function getNodeKind(node) {
 }
 
 /**
- * Turns a payload identifier into readable text: 'conversationOpened' → 'Conversation Opened'.
- * @param {string} identifier
- * @returns {string}
- */
-export function humanize(identifier) {
-  return identifier
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/^./, (first) => first.toUpperCase())
-}
-
-/**
  * Edges take their source node's accent colour. Success/failure connectors belong to the
  * business-hours branch, so their outgoing edges use its colour.
  * @param {{ type?: string, data?: Record<string, any> } | undefined} sourceNode
