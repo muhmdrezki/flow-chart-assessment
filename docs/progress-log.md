@@ -4,6 +4,34 @@ Newest entries first.
 
 ---
 
+## 2026-09-22: Day 2: Feature 2a (node foundation)
+
+Branch: `feature/02a-node-foundation` · Spec: `docs/specs/02-custom-nodes.md` (confirmed)
+
+**Done**
+- Merged the Feature 1 stack (#1–#3) into `main`.
+- Spec 02 confirmed with decisions 2a–2h. The Business Hours card follows the mockup
+  ("Business Hours - UTC"), and the app uses the Nunito font, self-hosted.
+- `nodeRegistry.js`: one settings table per kind (label, icon, card/pill, editable, accent, size).
+- `nodeDescription.js`: titles (the trigger is now "Trigger", as in the mockup) and derived descriptions.
+- `businessHours.js`: day names, `DEFAULT_TIMEZONE = 'UTC'`, `HH:mm` check.
+- `payloadValidation.js`: validation moved out of `graph.js` and extended to message items,
+  comments, business-hours times/timezone and descriptions.
+- Code review (high): no code issues; it flagged the two test files still using the moved functions,
+  which were updated in the tests step.
+- Tests: 19 files, 285 tests, all passing. Coverage 99.2% statements / 99.0% branches.
+
+**Decisions**
+- Business hours are wall-clock times in the node's own timezone, shown as stored and never converted.
+  The default timezone is UTC (also for new nodes in Spec 03).
+- `getNodeTitle` moved to `nodeDescription.js` to avoid a circular import (spec §3.4).
+- ESLint ignores `.vite/` (Vite's dependency cache was being linted).
+
+**Next**
+- PR 2a on request, then 2b: `@lucide/vue`, BaseIcon, NodeCard, ConnectorNode.
+
+---
+
 ## 2026-09-21: Day 1: Feature 1 (Scaffold + Canvas)
 
 Branch: `feature/01-scaffold-canvas` · Spec: `docs/specs/01-scaffold-canvas.md`

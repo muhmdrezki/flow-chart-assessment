@@ -64,7 +64,7 @@ describe('FlowCanvas', () => {
       id: '1',
       type: 'default',
       position: store.nodeById.get('1').position,
-      data: { label: 'Conversation Opened' },
+      data: { label: 'Trigger' },
     })
   })
 

@@ -29,7 +29,7 @@ describe('toVueFlowNodes', () => {
         id: '1',
         type: 'default',
         position: { x: 10, y: 20 },
-        data: { label: 'Conversation Opened' },
+        data: { label: 'Trigger' },
       },
     ])
   })

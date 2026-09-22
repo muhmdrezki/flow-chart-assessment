@@ -1,4 +1,4 @@
-import { findPayloadError } from '@/utils/graph'
+import { findPayloadError } from '@/utils/payloadValidation'
 
 /** The payload was fetched but its content is unusable. Retrying can't fix that. */
 export class InvalidPayloadError extends Error {

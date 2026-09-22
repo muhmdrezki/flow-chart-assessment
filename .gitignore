@@ -27,3 +27,6 @@ Thumbs.db
 
 # deployment
 .vercel
+
+# vite / vitest cache
+.vite/

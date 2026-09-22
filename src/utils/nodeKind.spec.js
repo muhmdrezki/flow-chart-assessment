@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NODE_KIND, getEdgeColourKind, getNodeKind, getNodeTitle } from './nodeKind'
+import { NODE_KIND, getEdgeColourKind, getNodeKind, humanize } from './nodeKind'
 
 describe('getNodeKind', () => {
   it.each([
@@ -25,32 +25,14 @@ describe('getNodeKind', () => {
   })
 })
 
-describe('getNodeTitle', () => {
-  it('uses the node name', () => {
-    expect(getNodeTitle({ type: 'sendMessage', name: 'Welcome Message' })).toBe('Welcome Message')
-  })
-
-  it('trims the name', () => {
-    expect(getNodeTitle({ type: 'sendMessage', name: '  Welcome  ' })).toBe('Welcome')
-  })
-
-  it('humanises the trigger event when the trigger has no name', () => {
-    const trigger = { type: 'trigger', data: { type: 'conversationOpened' } }
-    expect(getNodeTitle(trigger)).toBe('Conversation Opened')
-  })
-
-  it('falls back to the kind when the name is blank', () => {
-    expect(getNodeTitle({ type: 'dateTime', name: '   ', data: { action: 'businessHours' } })).toBe(
-      'Business Hours',
-    )
-  })
-
-  it('falls back to the kind for a trigger without an event type', () => {
-    expect(getNodeTitle({ type: 'trigger', data: {} })).toBe('Trigger')
-  })
-
-  it('falls back to "Unknown" for unrecognised nodes', () => {
-    expect(getNodeTitle({ type: 'webhook' })).toBe('Unknown')
+describe('humanize', () => {
+  it.each([
+    ['conversationOpened', 'Conversation Opened'],
+    ['businessHours', 'Business Hours'],
+    ['trigger', 'Trigger'],
+    ['event2Fired', 'Event2 Fired'],
+  ])('turns %s into %s', (identifier, text) => {
+    expect(humanize(identifier)).toBe(text)
   })
 })
 
