@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { NODE_KIND } from './nodeKind'
-import { NODE_REGISTRY, getNodeConfig, getNodeSize, isEditable } from './nodeRegistry'
+import {
+  NODE_REGISTRY,
+  TRIGGER_EVENT_LABELS,
+  getNodeConfig,
+  getNodeSize,
+  isEditable,
+} from './nodeRegistry'
 
 const nodes = {
   trigger: { type: 'trigger', data: { type: 'conversationOpened' } },
@@ -87,5 +93,15 @@ describe('isEditable', () => {
     ['unknown', false],
   ])('%s → %s', (kind, editable) => {
     expect(isEditable(nodes[kind])).toBe(editable)
+  })
+})
+
+describe('TRIGGER_EVENT_LABELS', () => {
+  it('labels the payload trigger event', () => {
+    expect(TRIGGER_EVENT_LABELS.conversationOpened).toBe('Conversation Opened')
+  })
+
+  it('cannot be modified', () => {
+    expect(Object.isFrozen(TRIGGER_EVENT_LABELS)).toBe(true)
   })
 })

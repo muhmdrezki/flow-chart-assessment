@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NODE_KIND, getEdgeColourKind, getNodeKind, humanize } from './nodeKind'
+import { NODE_KIND, getEdgeColourKind, getNodeKind } from './nodeKind'
 
 describe('getNodeKind', () => {
   it.each([
@@ -22,17 +22,6 @@ describe('getNodeKind', () => {
     ['undefined', undefined],
   ])('returns unknown for %s', (_, node) => {
     expect(getNodeKind(node)).toBe(NODE_KIND.UNKNOWN)
-  })
-})
-
-describe('humanize', () => {
-  it.each([
-    ['conversationOpened', 'Conversation Opened'],
-    ['businessHours', 'Business Hours'],
-    ['trigger', 'Trigger'],
-    ['event2Fired', 'Event2 Fired'],
-  ])('turns %s into %s', (identifier, text) => {
-    expect(humanize(identifier)).toBe(text)
   })
 })
 

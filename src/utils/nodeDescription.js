@@ -1,31 +1,36 @@
 import { DEFAULT_TIMEZONE } from './businessHours'
-import { NODE_KIND, getNodeKind, humanize } from './nodeKind'
-import { NODE_REGISTRY, getNodeConfig } from './nodeRegistry'
+import { NODE_KIND, getNodeKind } from './nodeKind'
+import { NODE_REGISTRY, TRIGGER_EVENT_LABELS, getNodeConfig } from './nodeRegistry'
+
+// Lets `URL` parse relative attachment paths ("uploads/a.png") as well as absolute URLs.
+const URL_BASE = 'https://attachment.invalid'
 
 /**
- * Makes text safe for a clamped single paragraph: "Hello there\n\nwelcome" → "Hello there welcome".
- * @param {unknown} text
+ * Trimmed text, or '' for anything that isn't a string. Blank text therefore counts as missing.
+ * Line breaks and repeated spaces are left in: HTML collapses them when rendering, and the hover
+ * tooltip keeps them.
+ * @param {unknown} value
  * @returns {string}
  */
-export function collapseWhitespace(text) {
-  return typeof text === 'string' ? text.replace(/\s+/g, ' ').trim() : ''
+export function trimText(value) {
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 /**
  * The file name at the end of an attachment URL, e.g. ".../id/396/536/354.jpg?hmac=…" → "354.jpg".
- * Falls back to the raw value when there's no file name to take.
+ * `URL` strips the query and hash. Falls back to the raw value when there's no file name to take.
  * @param {string} url
  * @returns {string}
  */
 export function getAttachmentName(url) {
-  let path
+  let pathname
   try {
-    path = new URL(url).pathname
+    pathname = new URL(url, URL_BASE).pathname
   } catch {
-    path = String(url).split(/[?#]/)[0]
+    return url
   }
 
-  const segment = path.split('/').filter(Boolean).pop()
+  const segment = pathname.split('/').filter(Boolean).pop()
   if (!segment) return url
   try {
     return decodeURIComponent(segment)
@@ -48,7 +53,7 @@ function describeMessage({ payload }) {
   const items = Array.isArray(payload) ? payload : []
   const text = items
     .filter((item) => item?.type === 'text')
-    .map((item) => collapseWhitespace(item.text))
+    .map((item) => trimText(item.text))
     .find(Boolean)
   if (text) return text
 
@@ -59,9 +64,13 @@ function describeMessage({ payload }) {
 }
 
 const DESCRIBERS = {
-  [NODE_KIND.TRIGGER]: (data) => (data.type ? humanize(data.type) : ''),
+  [NODE_KIND.TRIGGER]: ({ type }) => {
+    if (!type) return ''
+    // hasOwn, so an event named e.g. "toString" doesn't pick up Object.prototype's function.
+    return Object.hasOwn(TRIGGER_EVENT_LABELS, type) ? TRIGGER_EVENT_LABELS[type] : type
+  },
   [NODE_KIND.SEND_MESSAGE]: describeMessage,
-  [NODE_KIND.ADD_COMMENT]: (data) => collapseWhitespace(data.comment) || 'No comment',
+  [NODE_KIND.ADD_COMMENT]: (data) => trimText(data.comment) || 'No comment',
   // As in the mockup ("Business Hours - UTC"); the hours themselves are shown in the drawer.
   [NODE_KIND.BUSINESS_HOURS]: (data) =>
     `${NODE_REGISTRY[NODE_KIND.BUSINESS_HOURS].label} - ${data.timezone || DEFAULT_TIMEZONE}`,
@@ -78,7 +87,7 @@ export function getNodeDescription(node) {
   if (getNodeConfig(node).variant === 'pill') return ''
 
   const data = node.data ?? {}
-  const custom = collapseWhitespace(data.description)
+  const custom = trimText(data.description)
   if (custom) return custom
 
   return DESCRIBERS[getNodeKind(node)]?.(data) ?? ''

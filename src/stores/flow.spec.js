@@ -95,7 +95,7 @@ describe('useFlowStore', () => {
         d09c08: { title: 'Business Hours', description: 'Business Hours - UTC' },
         '161f52': { title: 'Success', description: '' },
         '28c4b9': { title: 'Failure', description: '' },
-        b0653a: { title: 'Welcome Message', description: 'Hello there welcome to the chat!' },
+        b0653a: { title: 'Welcome Message', description: 'Hello there\n\nwelcome to the chat!' },
         e879e4: { title: 'Add Comment #1', description: 'User message during off hours' },
       })
     })

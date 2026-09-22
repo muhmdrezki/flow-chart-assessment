@@ -70,15 +70,23 @@ stores it there). Otherwise it's derived per kind:
 
 | kind | derived description | payload example → result |
 |---|---|---|
-| trigger | humanised `data.type` | `conversationOpened` → "Conversation Opened" |
+| trigger | the event's label from `TRIGGER_EVENT_LABELS`, else the raw `data.type` | `conversationOpened` → "Conversation Opened" |
 | sendMessage | first text message, else the first attachment's **file name**, else "No message content" | "Sorry, we are currently away…"; attachment-only → "354.jpg" |
 | addComment | the comment, else "No comment" | "User message during off hours" |
 | businessHours | `<label> - <timezone>`, as in the mockup (see 2.3) | "Business Hours - UTC" |
 | success / failure | none (pills show only the label) | — |
 | unknown | "Unsupported node" | — |
 
-Whitespace in derived text is collapsed (`"Hello there\n\nwelcome"` → `"Hello there welcome"`), so a
-two-line clamp shows real words, not blank lines.
+Text is only **trimmed**, so blank text counts as missing and falls back. Line breaks and repeated
+spaces inside it are left as they are: HTML already collapses them when rendering a paragraph
+(`white-space: normal`), so the clamp shows real words, and the hover tooltip keeps the original
+line breaks.
+
+**Trigger event labels** are an explicit table (`TRIGGER_EVENT_LABELS` in the registry) rather than
+text generated from the identifier: the events are a fixed, known list, and a table is reviewable and
+can't split an identifier oddly. In a real implementation these labels would come from an i18n
+library. The lookup uses `Object.hasOwn`, so an event named e.g. `toString` can't hit
+`Object.prototype`.
 
 ### 2.3 Business-hours description (decision 2c)
 
@@ -221,11 +229,11 @@ Validation has outgrown `graph.js`, so it moves to its own file, **`utils/payloa
 
 ```
 src/utils/
-  nodeRegistry.js        NEW   NODE_REGISTRY, getNodeConfig(node), getNodeSize(node), isEditable(node)
-  nodeDescription.js     NEW   getNodeTitle(node) (moved from nodeKind.js), getNodeDescription(node), getAttachmentName(url), collapseWhitespace(text)
+  nodeRegistry.js        NEW   NODE_REGISTRY, TRIGGER_EVENT_LABELS, getNodeConfig(node), getNodeSize(node), isEditable(node)
+  nodeDescription.js     NEW   getNodeTitle(node) (moved from nodeKind.js), getNodeDescription(node), getAttachmentName(url), trimText(value)
   businessHours.js       NEW   WEEK_DAYS, DEFAULT_TIMEZONE, isTimeString(value)
   payloadValidation.js   NEW   findPayloadError (moved from graph.js + type-specific rules)
-  nodeKind.js            EDIT  getNodeTitle removed (moved, see 3.4); humanize exported for descriptions
+  nodeKind.js            EDIT  getNodeTitle removed (moved, see 3.4)
   graph.js               EDIT  validation removed (moved)
   vueFlowAdapter.js      EDIT  type = kind; data = display object from the display map
 src/stores/flow.js       EDIT  hydrate passes getNodeSize; new getter nodeDisplayById
@@ -247,7 +255,7 @@ src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handl
 - `getNodeSize(node)` → `getNodeConfig(node).size`. `isEditable(node)` → `getNodeConfig(node).editable`.
 
 **`utils/nodeDescription.js`**
-- `collapseWhitespace(text)` → trimmed, with runs of whitespace replaced by single spaces.
+- `trimText(value)` → the trimmed string, or `''` for non-strings (blank text counts as missing).
 - `getAttachmentName(url)` → the last path segment, without query/hash and URL-decoded
   (`https://x/id/396/536/354.jpg?hmac=…` → `354.jpg`). An invalid URL falls back to the raw string.
 - `getNodeDescription(node)` → the string from table 2.2 (`''` for pills).
@@ -298,10 +306,10 @@ src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handl
 | file | cases |
 |---|---|
 | `utils/nodeRegistry.spec.js` | every kind has a complete entry; editable is true only for the 3 editable kinds; `getNodeConfig`/`getNodeSize` for each kind and for unknown/missing nodes |
-| `utils/nodeDescription.spec.js` | `getNodeTitle`: name wins (trimmed), otherwise the registry label, so the trigger is "Trigger"; `data.description` wins, but blank ones are ignored; every row of table 2.2 against the real payload; text → attachment → fallback order; whitespace collapsed; `getAttachmentName` for the payload URL, query/hash, encoded names, trailing slash, invalid URL |
+| `utils/nodeDescription.spec.js` | `getNodeTitle`: name wins (trimmed), otherwise the registry label, so the trigger is "Trigger"; `data.description` wins, but blank ones are ignored; every row of table 2.2 against the real payload; text → attachment → fallback order; `trimText`; trigger event labels (listed, unlisted, built-in property names); `getAttachmentName` for the payload URL, query/hash, encoded names, trailing slash, invalid URL |
 | `utils/businessHours.spec.js` | `WEEK_DAYS` order; `DEFAULT_TIMEZONE`; `isTimeString` accepts `00:00`/`09:00`/`23:59` and rejects `24:00`, `9:00`, `09:60`, `0900`, non-strings |
 | `utils/payloadValidation.spec.js` | all existing `findPayloadError` cases (moved), plus one case per new rule in 2.9; the real payload is still valid |
-| `utils/nodeKind.spec.js` | `humanize` (camelCase → words, first letter capitalised); title tests move to `nodeDescription.spec.js` |
+| `utils/nodeKind.spec.js` | title tests move to `nodeDescription.spec.js` |
 | `utils/vueFlowAdapter.spec.js` | `type` is the kind; `data` is the **same object** as in the display map |
 | `stores/flow.spec.js` | `nodeDisplayById` values for the payload; **not recomputed when positions change** (same object identity after `updateNodePositions`); layout uses pill sizes (the pills' y spacing is smaller than the cards') |
 | `components/ui/BaseIcon/BaseIcon.spec.js` | renders an svg for each name; size; decorative vs labelled a11y; invalid name is rejected by the validator |
