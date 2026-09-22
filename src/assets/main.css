@@ -4,16 +4,18 @@
 @import '@vue-flow/controls/dist/style.css';
 
 /*
- * Per-kind accent colours, shared by nodes and edges. Declared in @theme so they also generate
- * Tailwind utilities (e.g. `text-kind-trigger`). `static` emits every variable even when no
- * utility uses it, because the edge styles below read them directly.
- * Placeholder values; Spec 02 finalises the palette.
+ * Per-kind accent colours, shared by nodes and edges (the node registry names the variable for
+ * each kind). Declared in @theme so they also generate Tailwind utilities (e.g. `text-kind-trigger`).
+ * `static` emits every variable even when no utility uses it, because components and edge styles
+ * read them directly. The 600 shades keep icons and pill text readable on white.
  */
 @theme static {
-  --color-kind-trigger: #ec4899;
-  --color-kind-business-hours: #f97316;
-  --color-kind-send-message: #14b8a6;
-  --color-kind-add-comment: #3b82f6;
+  --color-kind-trigger: #e11d48;
+  --color-kind-business-hours: #ea580c;
+  --color-kind-send-message: #0d9488;
+  --color-kind-add-comment: #2563eb;
+  --color-kind-success: #16a34a;
+  --color-kind-failure: #dc2626;
   --color-kind-neutral: #94a3b8;
 }
 
