@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import payload from '../../../../public/payload.json'
+import { nodeTypes } from '@/components/nodes/nodeTypes'
 import { useFlowStore } from '@/stores/flow'
 import FlowCanvas from './FlowCanvas.vue'
 
@@ -17,6 +18,7 @@ vi.mock('@vue-flow/core', async () => {
     props: {
       nodes: Array,
       edges: Array,
+      nodeTypes: Object,
       fitViewOnInit: Boolean,
       nodesConnectable: { type: Boolean, default: undefined },
       deleteKeyCode: { type: [String, null], default: undefined },
@@ -26,7 +28,8 @@ vi.mock('@vue-flow/core', async () => {
       return () => h('div', slots.default?.())
     },
   })
-  return { VueFlow: stubs.VueFlow }
+  // The node components import these; they're never rendered by the stub.
+  return { VueFlow: stubs.VueFlow, Handle: {}, Position: { Top: 'top', Bottom: 'bottom' } }
 })
 
 vi.mock('@vue-flow/background', async () => {
@@ -62,10 +65,33 @@ describe('FlowCanvas', () => {
     expect(nodes).toHaveLength(7)
     expect(nodes.find((node) => node.id === '1')).toEqual({
       id: '1',
-      type: 'default',
+      type: 'trigger',
       position: store.nodeById.get('1').position,
-      data: { label: 'Trigger' },
+      data: { title: 'Trigger', description: 'Conversation Opened' },
     })
+  })
+
+  it('registers the custom node components', () => {
+    expect(vueFlow(mount(FlowCanvas)).props('nodeTypes')).toBe(nodeTypes)
+  })
+
+  it('gives every payload node a type that has a component', () => {
+    const types = vueFlow(mount(FlowCanvas))
+      .props('nodes')
+      .map((node) => node.type)
+    expect(types.every((type) => type in nodeTypes)).toBe(true)
+  })
+
+  it('keeps each node’s display data identical across a drag', async () => {
+    const wrapper = mount(FlowCanvas)
+    const before = vueFlow(wrapper).props('nodes')
+
+    store.updateNodePositions([{ id: '1', position: { x: 11, y: 12 } }])
+    await nextTick()
+
+    const after = vueFlow(wrapper).props('nodes')
+    expect(after).not.toBe(before)
+    after.forEach((node, index) => expect(node.data).toBe(before[index].data))
   })
 
   it('passes the derived edges with their colour classes', () => {

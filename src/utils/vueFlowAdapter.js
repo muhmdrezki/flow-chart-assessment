@@ -1,19 +1,22 @@
-import { getNodeTitle } from './nodeDescription'
-import { getEdgeColourKind } from './nodeKind'
+import { getEdgeColourKind, getNodeKind } from './nodeKind'
 
 /**
  * Maps store nodes to Vue Flow nodes. Only `id`, `type`, `position` and `data` are passed:
  * Vue Flow merges these into its internal nodes, so passing internal keys (`selected`,
  * `dimensions`…) would reset them. Position is copied so Vue Flow never holds a reference to
  * store state.
+ *
+ * `type` is the node kind, which selects the component in `nodeTypes`. `data` is the node's
+ * display object, reused as-is, so it keeps its identity across drags.
  * @param {import('./graph').FlowNode[]} nodes
+ * @param {Map<string, { title: string, description: string }>} displayById
  */
-export function toVueFlowNodes(nodes) {
+export function toVueFlowNodes(nodes, displayById) {
   return nodes.map((node) => ({
     id: node.id,
-    type: 'default',
+    type: getNodeKind(node),
     position: { ...node.position },
-    data: { label: getNodeTitle(node) },
+    data: displayById.get(node.id),
   }))
 }
 

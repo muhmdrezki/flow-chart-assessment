@@ -3,12 +3,13 @@ import { computed } from 'vue'
 import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
+import { nodeTypes } from '@/components/nodes/nodeTypes'
 import { useFlowStore } from '@/stores/flow'
 import { toVueFlowEdges, toVueFlowNodes } from '@/utils/vueFlowAdapter'
 
 const store = useFlowStore()
 
-const nodes = computed(() => toVueFlowNodes(store.nodes))
+const nodes = computed(() => toVueFlowNodes(store.nodes, store.nodeDisplayById))
 const edges = computed(() => toVueFlowEdges(store.edges, store.nodeById))
 
 // Vue Flow moves nodes itself while dragging; the store is updated once, when the drag ends.
@@ -22,6 +23,7 @@ function onNodeDragStop({ nodes: draggedNodes }) {
   <VueFlow
     :nodes="nodes"
     :edges="edges"
+    :node-types="nodeTypes"
     fit-view-on-init
     :nodes-connectable="false"
     :delete-key-code="null"

@@ -23,24 +23,37 @@ const comment = { id: 'c', type: 'addComment', data: {} }
 const unknown = { id: 'u', type: 'webhook', data: {} }
 
 describe('toVueFlowNodes', () => {
-  it('passes only id, type, position and a label', () => {
-    expect(toVueFlowNodes([trigger])).toEqual([
-      {
-        id: '1',
-        type: 'default',
-        position: { x: 10, y: 20 },
-        data: { label: 'Trigger' },
-      },
+  const triggerDisplay = { title: 'Trigger', description: 'Conversation Opened' }
+  const displayById = new Map([
+    ['1', triggerDisplay],
+    ['bh', { title: 'Business Hours', description: 'Business Hours - UTC' }],
+  ])
+
+  it('passes only id, the kind as type, position and the display data', () => {
+    expect(toVueFlowNodes([trigger], displayById)).toEqual([
+      { id: '1', type: 'trigger', position: { x: 10, y: 20 }, data: triggerDisplay },
     ])
   })
 
+  it('reuses the display object itself, so it keeps its identity across renders', () => {
+    const [mapped] = toVueFlowNodes([trigger], displayById)
+    expect(mapped.data).toBe(triggerDisplay)
+  })
+
   it('copies the position so Vue Flow never holds store state', () => {
-    const [mapped] = toVueFlowNodes([trigger])
+    const [mapped] = toVueFlowNodes([trigger], displayById)
     expect(mapped.position).not.toBe(trigger.position)
   })
 
-  it('labels nodes with their title', () => {
-    expect(toVueFlowNodes([businessHours])[0].data.label).toBe('Business Hours')
+  it.each([
+    [businessHours, 'businessHours'],
+    [success, 'success'],
+    [failure, 'failure'],
+    [message, 'sendMessage'],
+    [comment, 'addComment'],
+    [unknown, 'unknown'],
+  ])('uses the node kind as the Vue Flow type (%j → %s)', (node, type) => {
+    expect(toVueFlowNodes([node], displayById)[0].type).toBe(type)
   })
 })
 
