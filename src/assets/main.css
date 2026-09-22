@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* Self-hosted: Vite bundles the font files, so nothing is requested from a third party. */
+@import '@fontsource-variable/nunito';
 @import '@vue-flow/core/dist/style.css';
 @import '@vue-flow/core/dist/theme-default.css';
 @import '@vue-flow/controls/dist/style.css';
@@ -17,6 +19,24 @@
   --color-kind-success: #16a34a;
   --color-kind-failure: #dc2626;
   --color-kind-neutral: #94a3b8;
+}
+
+@theme {
+  --font-sans: 'Nunito Variable', ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Handles are only anchors for the edges (connecting is turned off), so they're small and quiet
+ * instead of Vue Flow's default dark dots.
+ */
+.vue-flow__handle {
+  width: 7px;
+  height: 7px;
+  min-width: 0;
+  min-height: 0;
+  border: 1.5px solid #fff;
+  background: var(--color-slate-300);
+  cursor: inherit;
 }
 
 /* Edge colour follows the source node's kind (class set by toVueFlowEdges). */
