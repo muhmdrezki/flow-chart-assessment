@@ -313,15 +313,15 @@ src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handl
 
 ## 5. Acceptance criteria
 
-- [ ] Cards show icon + title + a description clamped to 2 lines; hovering shows the full text.
-- [ ] Trigger: "Trigger" / "Conversation Opened". Business Hours: "Business Hours - UTC".
+- [x] Cards show icon + title + a description clamped to 2 lines; hovering shows the full text.
+- [x] Trigger: "Trigger" / "Conversation Opened". Business Hours: "Business Hours - UTC".
       Messages show their text. The comment shows the comment.
-- [ ] Success/Failure render as green/red pills on the branch lines.
-- [ ] Editable cards show a pointer and a hover state; display-only nodes don't; all nodes still drag.
-- [ ] After a drag, titles and descriptions aren't recomputed (display objects keep their identity; tested).
-- [ ] The real payload still validates; malformed type-specific fields are rejected with a clear message.
-- [ ] The whole app, including the Vue Flow controls, renders in Nunito, served from the app bundle (no Google request).
-- [ ] `npm run lint` is clean; `npm run test:run` is green; `npm run build` succeeds.
+- [x] Success/Failure render as green/red pills on the branch lines.
+- [x] Editable cards show a pointer and a hover state; display-only nodes don't; all nodes still drag.
+- [x] After a drag, titles and descriptions aren't recomputed (display objects keep their identity; tested).
+- [x] The real payload still validates; malformed type-specific fields are rejected with a clear message.
+- [x] The whole app, including the Vue Flow controls, renders in Nunito, served from the app bundle (no Google request).
+- [x] `npm run lint` is clean; `npm run test:run` is green; `npm run build` succeeds.
 
 ## 6. Decisions (confirmed 2026-09-22)
 
