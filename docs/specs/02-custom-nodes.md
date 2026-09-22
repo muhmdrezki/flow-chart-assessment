@@ -288,8 +288,8 @@ src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handl
 | PR | Branch | Contents |
 |---|---|---|
 | 2a | `feature/02a-node-foundation` | This spec; `.gitignore` (.vite); registry, descriptions, business-hours constants, validation move + extension, title change, + tests |
-| 2b | `feature/02b-node-components` | `@lucide/vue`; BaseIcon, NodeCard, ConnectorNode, nodeTypes map, + tests |
-| 2c | `feature/02c-node-canvas` | `@fontsource-variable/nunito`; store display map + sizes, adapter, FlowCanvas wiring, CSS palette + font, + tests, docs |
+| 2b | `feature/02b-node-components` | `@lucide/vue`; BaseIcon, NodeCard, ConnectorNode, nodeTypes map, final colour palette (the components read it), + tests |
+| 2c | `feature/02c-node-canvas` | `@fontsource-variable/nunito`; store display map + sizes, adapter, FlowCanvas wiring, font + handle styles, + tests, docs |
 
 ---
 
