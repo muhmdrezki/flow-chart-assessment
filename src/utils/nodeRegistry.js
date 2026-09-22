@@ -1,0 +1,98 @@
+import { NODE_KIND, getNodeKind } from './nodeKind'
+
+const CARD_SIZE = Object.freeze({ width: 240, height: 88 })
+const PILL_SIZE = Object.freeze({ width: 96, height: 28 })
+
+/**
+ * Everything that differs between node kinds, in one place, so components never branch on type.
+ *
+ * - `icon` is a name that `ui/BaseIcon` maps to an SVG, which keeps this file free of Vue imports.
+ * - `accent` is the CSS custom property shared by the node and its outgoing edges.
+ * - `editable` decides whether a node can open the details drawer. Success and failure are
+ *   display-only per the brief; the trigger is display-only by our decision (Spec 04).
+ * - `hasInput` is false for the trigger: a flow starts there, so nothing connects into it.
+ * - `size` is what the layout uses, so its spacing matches what's drawn.
+ */
+export const NODE_REGISTRY = Object.freeze({
+  [NODE_KIND.TRIGGER]: {
+    label: 'Trigger',
+    icon: 'zap',
+    variant: 'card',
+    editable: false,
+    hasInput: false,
+    accent: '--color-kind-trigger',
+    size: CARD_SIZE,
+  },
+  [NODE_KIND.SEND_MESSAGE]: {
+    label: 'Send Message',
+    icon: 'send',
+    variant: 'card',
+    editable: true,
+    hasInput: true,
+    accent: '--color-kind-send-message',
+    size: CARD_SIZE,
+  },
+  [NODE_KIND.ADD_COMMENT]: {
+    label: 'Add Comment',
+    icon: 'message-square',
+    variant: 'card',
+    editable: true,
+    hasInput: true,
+    accent: '--color-kind-add-comment',
+    size: CARD_SIZE,
+  },
+  [NODE_KIND.BUSINESS_HOURS]: {
+    label: 'Business Hours',
+    icon: 'calendar-clock',
+    variant: 'card',
+    editable: true,
+    hasInput: true,
+    accent: '--color-kind-business-hours',
+    size: CARD_SIZE,
+  },
+  [NODE_KIND.SUCCESS]: {
+    label: 'Success',
+    icon: 'check',
+    variant: 'pill',
+    editable: false,
+    hasInput: true,
+    accent: '--color-kind-success',
+    size: PILL_SIZE,
+  },
+  [NODE_KIND.FAILURE]: {
+    label: 'Failure',
+    icon: 'x',
+    variant: 'pill',
+    editable: false,
+    hasInput: true,
+    accent: '--color-kind-failure',
+    size: PILL_SIZE,
+  },
+  [NODE_KIND.UNKNOWN]: {
+    label: 'Unknown',
+    icon: 'circle-help',
+    variant: 'card',
+    editable: false,
+    hasInput: true,
+    accent: '--color-kind-neutral',
+    size: CARD_SIZE,
+  },
+})
+
+/**
+ * Always returns an entry: nodes of an unrecognised kind get the `unknown` one.
+ * @param {{ type?: string, data?: Record<string, any> } | undefined} node
+ */
+export function getNodeConfig(node) {
+  return NODE_REGISTRY[getNodeKind(node)]
+}
+
+/** @param {{ type?: string, data?: Record<string, any> } | undefined} node */
+export function getNodeSize(node) {
+  return getNodeConfig(node).size
+}
+
+/** @param {{ type?: string, data?: Record<string, any> } | undefined} node */
+export function isEditable(node) {
+  return getNodeConfig(node).editable
+}
