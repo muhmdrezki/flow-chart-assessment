@@ -126,6 +126,9 @@ Keep the payload's exact structure and don't invent a new schema. Adapt it at th
   when missing (see Spec 01/02). A user-entered description is stored additively on
   `data.description`.
 - `times[]` entries are `{ day: 'mon'..'sun', startTime: 'HH:mm', endTime: 'HH:mm' }`.
+- Business hours are wall-clock times in the node's own `data.timezone`. Show them as stored and never
+  convert them to the viewer's timezone (this app only edits flows; it never runs them). The default
+  timezone is `UTC`, both for nodes without one and for newly created business-hours nodes.
 
 ## Component structure
 
