@@ -1,4 +1,5 @@
-import { getEdgeColourKind, getNodeTitle } from './nodeKind'
+import { getNodeTitle } from './nodeDescription'
+import { getEdgeColourKind } from './nodeKind'
 
 /**
  * Maps store nodes to Vue Flow nodes. Only `id`, `type`, `position` and `data` are passed:

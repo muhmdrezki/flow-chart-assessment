@@ -39,25 +39,15 @@ export function getNodeKind(node) {
   }
 }
 
-/** 'conversationOpened' → 'Conversation Opened' */
-function humanize(identifier) {
+/**
+ * Turns a payload identifier into readable text: 'conversationOpened' → 'Conversation Opened'.
+ * @param {string} identifier
+ * @returns {string}
+ */
+export function humanize(identifier) {
   return identifier
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/^./, (first) => first.toUpperCase())
-}
-
-/**
- * Display title. The trigger has no `name` in the payload, so it falls back to its event type.
- * @param {{ name?: string, type?: string, data?: Record<string, any> }} node
- * @returns {string}
- */
-export function getNodeTitle(node) {
-  const name = node.name?.trim()
-  if (name) return name
-
-  const kind = getNodeKind(node)
-  if (kind === NODE_KIND.TRIGGER && node.data?.type) return humanize(node.data.type)
-  return humanize(kind)
 }
 
 /**
