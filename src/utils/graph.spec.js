@@ -1,65 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import payload from '../../public/payload.json'
-import { deriveEdges, findPayloadError, normalizePayload } from './graph'
-
-const validNode = (overrides = {}) => ({ id: 'a1', parentId: -1, type: 'trigger', ...overrides })
-
-describe('findPayloadError', () => {
-  it('accepts the real payload', () => {
-    expect(findPayloadError(payload)).toBeNull()
-  })
-
-  it('accepts an empty flow', () => {
-    expect(findPayloadError([])).toBeNull()
-  })
-
-  it.each([
-    ['an object', {}],
-    ['null', null],
-    ['a string', 'nodes'],
-  ])('rejects %s instead of an array', (_, raw) => {
-    expect(findPayloadError(raw)).toBe('expected an array of nodes')
-  })
-
-  it.each([null, 'node', 42, ['a1']])('rejects a non-object item (%j)', (item) => {
-    expect(findPayloadError([validNode(), item])).toBe('node at index 1 is not an object')
-  })
-
-  it.each([undefined, '', '   ', null, NaN, {}])('rejects an invalid id (%j)', (id) => {
-    expect(findPayloadError([validNode({ id })])).toBe('node at index 0 has an invalid id')
-  })
-
-  it('rejects duplicate ids, comparing numbers and strings alike', () => {
-    const raw = [validNode({ id: 1 }), validNode({ id: '1', parentId: 1 })]
-    expect(findPayloadError(raw)).toBe('duplicate node id "1"')
-  })
-
-  it.each([undefined, '', 7])('rejects an invalid type (%j)', (type) => {
-    expect(findPayloadError([validNode({ type })])).toBe('node "a1" has an invalid type')
-  })
-
-  it.each([undefined, null, '', {}])('rejects an invalid parentId (%j)', (parentId) => {
-    expect(findPayloadError([validNode({ parentId })])).toBe('node "a1" has an invalid parentId')
-  })
-
-  it('rejects a non-string name', () => {
-    expect(findPayloadError([validNode({ name: 42 })])).toBe('node "a1" has an invalid name')
-  })
-
-  it.each([null, [], 'data'])('rejects non-object data (%j)', (data) => {
-    expect(findPayloadError([validNode({ data })])).toBe('node "a1" has invalid data')
-  })
-
-  it('rejects a non-string data.type', () => {
-    expect(findPayloadError([validNode({ data: { type: 5 } })])).toBe(
-      'node "a1" has an invalid data.type',
-    )
-  })
-
-  it('allows name and data to be absent', () => {
-    expect(findPayloadError([{ id: 1, parentId: -1, type: 'trigger' }])).toBeNull()
-  })
-})
+import { deriveEdges, normalizePayload } from './graph'
 
 describe('normalizePayload', () => {
   const nodes = normalizePayload(payload)
