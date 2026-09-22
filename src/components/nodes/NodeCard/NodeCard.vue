@@ -4,10 +4,6 @@ import { Handle, Position } from '@vue-flow/core'
 import BaseIcon from '@/components/ui/BaseIcon/BaseIcon.vue'
 import { NODE_REGISTRY } from '@/utils/nodeRegistry'
 
-// Vue Flow passes every node prop (position, dimensions, events…). Only the ones declared below
-// are used, and the rest must not fall through onto the element as attributes.
-defineOptions({ inheritAttrs: false })
-
 const props = defineProps({
   /** The node kind, which is what the adapter passes to Vue Flow as the node type. */
   type: { type: String, required: true },

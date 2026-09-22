@@ -54,9 +54,24 @@ NODE_REGISTRY[kind] = {
 | failure | Failure | `x` | pill | no | `--color-kind-failure` |
 | unknown | Unknown | `circle-help` | card | no | `--color-kind-neutral` |
 
-The **Vue component map** (kind → component) can't live in `utils/` because it imports `.vue` files.
-It's a tiny file next to the components: `components/nodes/nodeTypes.js`, wrapped in `markRaw` so Vue
-never makes component definitions reactive.
+**Registering the components with Vue Flow: named slots (decision 2i).** `FlowCanvas` has one slot per
+kind. Vue Flow renders the slot named `node-<type>` for each node and passes it the node's props,
+and the slot hands `type`, `data` and `selected` to `NodeCard` or `ConnectorNode`:
+
+```html
+<template #node-sendMessage="{ type, data, selected }">
+  <NodeCard :type="type" :data="data" :selected="selected" />
+</template>
+```
+
+- **Why slots:** you can read in one template exactly which component draws each kind, and which props
+  it receives. Only those three props are passed, so Vue Flow's other node props (`position`,
+  `events`, …) never reach our components.
+- **The alternative** was a `nodeTypes` prop: an object map `{ kind: Component }` generated from the
+  registry. It was shorter, but less direct to read.
+- **Trade-off:** a new kind needs a registry entry **and** a slot. A test fails if any registered kind
+  has no slot, so they can't drift apart.
+- Built first as `components/nodes/nodeTypes.js` (PR 2b), then replaced by slots in PR 2c.
 
 ### 2.2 Titles and descriptions
 
@@ -122,7 +137,7 @@ Instead:
   business-hours text).
 - The adapter reuses those objects as each Vue Flow node's `data`, so after a drag every node's
   `data` keeps the **same object identity**. Vue Flow sees no data change for nodes that didn't move.
-- The node component map is `markRaw`, and node components are pure presentational (props in, markup
+- Node components are pure presentational (props in, markup
   out, no store access), so any re-render is cheap.
 
 **What we can't control (checked in `@vue-flow/core` 1.48.2):** Vue Flow's node wrapper renders each
@@ -240,10 +255,10 @@ src/stores/flow.js       EDIT  hydrate passes getNodeSize; new getter nodeDispla
 src/api/flowApi.js       EDIT  import path of findPayloadError
 src/components/
   ui/BaseIcon/           NEW   BaseIcon.vue (+ spec): name → Lucide icon; decorative unless given a label
-  nodes/nodeTypes.js     NEW   markRaw({ trigger: NodeCard, …, success: ConnectorNode, failure: ConnectorNode })
+  nodes/nodeTypes.js     (added in 2b, removed in 2c: replaced by FlowCanvas slots, decision 2i)
   nodes/NodeCard/        NEW   NodeCard.vue (+ spec)
   nodes/ConnectorNode/   NEW   ConnectorNode.vue (+ spec)
-  canvas/FlowCanvas/     EDIT  :node-types, display map → adapter
+  canvas/FlowCanvas/     EDIT  one "node-<type>" slot per kind, display map → adapter
 src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handle and node styles
 ```
 
@@ -315,7 +330,7 @@ src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handl
 | `components/ui/BaseIcon/BaseIcon.spec.js` | renders an svg for each name; size; decorative vs labelled a11y; invalid name is rejected by the validator |
 | `components/nodes/NodeCard/NodeCard.spec.js` | title, description, icon per kind; clamp class + `title` tooltip with the full text; `data-editable` true/false; selected state; the trigger has no target handle and the others do (Handle stubbed) |
 | `components/nodes/ConnectorNode/ConnectorNode.spec.js` | label and icon for success/failure; tone attribute; handles |
-| `components/canvas/FlowCanvas/FlowCanvas.spec.js` | passes `nodeTypes` covering every kind; nodes carry kind types and display data |
+| `components/canvas/FlowCanvas/FlowCanvas.spec.js` | a `node-<kind>` slot for every registered kind; each payload node rendered by the right component (cards → NodeCard, pills → ConnectorNode) with `type`/`data`/`selected`; unknown types → the unknown card; nodes carry kind types and display data |
 
 ---
 
@@ -343,3 +358,4 @@ src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handl
 | 2f | Validation | ✅ Moved to `utils/payloadValidation.js` and extended to the fields we now read |
 | 2g | Trigger title | ✅ "Trigger", with the event as its description (matches the mockup; changes Spec 01) |
 | 2h | Typeface | ✅ Nunito, self-hosted via `@fontsource-variable/nunito` (not a Google Fonts link) |
+| 2i | Registering node components | ✅ Named slots in `FlowCanvas` (`#node-<type>`), replacing the `nodeTypes` map (confirmed 2026-09-22, after 2b) |

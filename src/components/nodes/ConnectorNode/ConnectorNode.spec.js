@@ -54,12 +54,4 @@ describe('ConnectorNode', () => {
     expect(mountPill('success', { selected: true }).classes()).toContain('border-(--accent)')
     expect(mountPill('success').classes()).toContain('border-(--accent)/40')
   })
-
-  it('does not turn Vue Flow’s other node props into attributes', () => {
-    const wrapper = mount(ConnectorNode, {
-      props: { type: 'success', data: { title: 'Success' } },
-      attrs: { position: { x: 1, y: 2 } },
-    })
-    expect(wrapper.attributes('position')).toBeUndefined()
-  })
 })

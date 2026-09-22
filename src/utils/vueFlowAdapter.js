@@ -6,7 +6,7 @@ import { getEdgeColourKind, getNodeKind } from './nodeKind'
  * `dimensions`…) would reset them. Position is copied so Vue Flow never holds a reference to
  * store state.
  *
- * `type` is the node kind, which selects the component in `nodeTypes`. `data` is the node's
+ * `type` is the node kind, which selects the "node-<type>" slot in FlowCanvas. `data` is the node's
  * display object, reused as-is, so it keeps its identity across drags.
  * @param {import('./graph').FlowNode[]} nodes
  * @param {Map<string, { title: string, description: string }>} displayById

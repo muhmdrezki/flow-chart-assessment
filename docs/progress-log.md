@@ -22,15 +22,30 @@ Branches: `feature/02b-node-components` → `feature/02c-node-canvas` (stacked o
     that PR is correct on its own.
   - 2b noted the components aren't wired in yet, which is by design (2c).
 - Tests: 23 files, 343 tests, all passing.
+- Pushed the 2a → 2b → 2c stack as PRs #4, #5, #6.
+
+**Follow-ups on 2c (after review of the PRs)**
+- Replaced the string regexes in the 2a utilities with step-by-step code: `trimText` (HTML already
+  collapses whitespace), `new URL(url, base)` for attachment names, an explicit
+  `TRIGGER_EVENT_LABELS` table (an i18n library in a real implementation), and a split-and-check
+  `isTimeString`. The code review caught a prototype lookup in the label table, now guarded with
+  `Object.hasOwn`.
+- **Decision 2i:** node components are registered with named slots in `FlowCanvas`
+  (`#node-<type>`), not a generated `nodeTypes` map, so the canvas template shows exactly what renders
+  each kind. `nodeTypes.js` was removed. A test fails if a registered kind has no slot.
+- Tests: 22 files, 357 tests, all passing.
 
 **Issues hit**
 - An HTML comment above the pill's root element made the component render two root nodes, so
   attributes and classes couldn't be read from its root. The comment moved into the script.
-- Vue Flow passes every node prop to custom nodes. `inheritAttrs: false` keeps `position`, `events`
-  etc. from becoming DOM attributes (tested).
+- With `nodeTypes`, Vue Flow passed every node prop to our components, and `inheritAttrs: false` kept
+  them off the DOM. With slots, only `type`, `data` and `selected` are passed, so that guard was
+  removed.
+- Shell-generated file edits mangled `${…}` template literals and backticks twice. Those files are now
+  written directly.
 
 **Next**
-- Push the 2a → 2b → 2c stack and open the PRs.
+- Merge #4 → #5 → #6 when the user asks.
 - Then Spec 03: the Create Node form.
 
 ---
