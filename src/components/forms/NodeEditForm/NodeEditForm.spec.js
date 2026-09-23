@@ -51,23 +51,6 @@ describe('NodeEditForm', () => {
     expect(wrapper.text()).toContain('4 / 200')
   })
 
-  describe('a trigger', () => {
-    it('shows its event, with nothing to type into', () => {
-      const wrapper = mountForm(1)
-
-      expect(wrapper.text()).toContain('Conversation Opened')
-      expect(wrapper.findAll('input[type="text"]')).toHaveLength(1)
-    })
-
-    it('lets its once-per-contact setting be changed', async () => {
-      const wrapper = mountForm(1)
-
-      await wrapper.find('input[type="checkbox"]').setValue(true)
-
-      expect(lastDraft(wrapper).oncePerContact).toBe(true)
-    })
-  })
-
   it('edits a comment', async () => {
     const wrapper = mountForm('e879e4')
 

@@ -11,6 +11,7 @@ import { useSelectedNode } from './useSelectedNode'
 const AWAY_MESSAGE = 'b6a0c1'
 const ADD_COMMENT = 'e879e4'
 const SUCCESS_PILL = '161f52'
+const TRIGGER = '1'
 
 describe('useSelectedNode', () => {
   let router
@@ -75,8 +76,11 @@ describe('useSelectedNode', () => {
       expect(router.currentRoute.value.fullPath).toBe('/')
     })
 
-    it('goes back to the canvas for a branch pill, which has nothing to show', async () => {
-      await selectionAt(`/node/${SUCCESS_PILL}`)
+    it.each([
+      ['a branch pill, which is there to be read', SUCCESS_PILL],
+      ['the trigger, which is where a flow starts rather than a step in it', TRIGGER],
+    ])('goes back to the canvas for %s', async (_, id) => {
+      await selectionAt(`/node/${id}`)
 
       expect(router.currentRoute.value.fullPath).toBe('/')
     })

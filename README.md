@@ -13,7 +13,7 @@ Vue Flow · TanStack Query · Tailwind v4 · Vitest
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm run test:run   # 883 tests, single run
+npm run test:run   # 908 tests, single run
 npm run coverage   # with coverage
 npm run build      # production build
 npm run lint
@@ -31,8 +31,10 @@ Node 22.12 or newer (`.nvmrc` pins 24).
   with its Success and Failure branches.
 - **Open a step.** Clicking a node opens a drawer at `/node/:id`; clicking it again closes it.
   The URL is the selection, so a node can be linked, bookmarked and navigated back to.
-- **Edit it.** Each kind of step gets the fields it actually has — a message's parts, a comment, a
-  week of opening hours with a time zone. Nothing reaches the store until Save.
+- **Edit it.** Each kind of step gets the fields it actually has — a message's texts and
+  attachments, a comment, a week of opening hours with a time zone. Attachments are previewed as
+  tiles and new ones can be uploaded; every part can be changed or removed. Nothing reaches the
+  store until Save.
 - **Delete it.** A plain step closes the chain behind it; a condition takes its branches with it,
   after saying so.
 - **Take it back.** Cmd/Ctrl+Z undoes any of the above, and the buttons say what they will undo —
@@ -111,6 +113,13 @@ business is, like the hours on a shop door. They are shown exactly as stored and
 the viewer's zone — this app edits flows, it never runs them. That also makes "end after start" a
 string comparison rather than date arithmetic.
 
+**Attachments are URLs, so an uploaded file becomes one.** The payload stores an attachment as a URL
+and nothing else. With a backend, a chosen file would be POSTed to an upload endpoint and the URL it
+answered with stored on the node; there isn't one, so the file is read into a `data:` URL and _is_
+the value. The payload's shape is untouched, uploads work offline, and the cost — the bytes live in
+memory, and in every undo snapshot after them — is why there's a 2 MB limit. `utils/attachments.js`
+holds all of it, so swapping in a real upload means changing one function.
+
 **Renders are kept cheap.** The canvas gets nodes and edges from computed values, and each node's
 display text is derived in a map that reads names and data but never positions — so dragging a node
 doesn't recompute anything it doesn't have to, and every node keeps the same display object.
@@ -125,7 +134,7 @@ Every one of these was a decision, not an oversight.
 
 | What                          | Why                                                                                                                                                                                                                                                                                                                                                                       |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **The Trigger is accessible** | The brief only calls Success and Failure display-only, so the Trigger opens a drawer like anything else. Its event is read-only: the payload defines exactly one, and a select of invented events would be fiction. Its once-per-contact setting is real, so it is editable.                                                                                              |
+| **Only three kinds open**     | `sendMessage`, `addComment` and `businessHours` open a drawer. The Trigger, Success and Failure are display-only — not clickable, not in the tab order, and their URLs redirect. The Trigger briefly did open one, on the reading that the brief only names Success and Failure; it is the flow's entry point rather than a step, so it went back to being read-only.     |
 | **Delete exists**             | The brief doesn't ask for it. A flow editor that can only add felt incomplete, so it's here — with rules stated up front about what a delete takes with it.                                                                                                                                                                                                               |
 | **No persistence**            | Reload and you are back to the payload. The brief doesn't ask for it, and adding `localStorage` would have meant inventing a merge story between saved state and a fetched payload. The simulated API is the honest boundary instead.                                                                                                                                     |
 | **Undo doesn't call the API** | It writes to the store directly. Against a real backend it would send a compensating request, which can fail and needs its own handling; here the "server" is a delay in the same tab, so a request to it would be theatre. History is per-session and is not restored on a reload — the document is the durable thing, not the history, which is how every editor works. |
@@ -136,7 +145,7 @@ Every one of these was a decision, not an oversight.
 
 ## Testing
 
-**883 tests across 48 files**, 98% of statements covered. Tests sit beside the code they cover.
+**908 tests across 49 files**, 98% of statements covered. Tests sit beside the code they cover.
 
 - **Utils** are tested as plain functions, edge cases included: mixed id types, missing fields,
   malformed times, a cyclic parent, an attachment with a query string.

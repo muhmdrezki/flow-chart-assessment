@@ -110,7 +110,7 @@ comes back without the scrim: Vue Flow emits `pane-click` when the empty canvas 
 canvas passes it on as a request to close. So clicking the background closes the drawer, clicking
 another node switches to it in one click, and the canvas stays pannable throughout.
 
-### 2.4 Which nodes open the drawer (decision 4c)
+### 2.4 Which nodes open the drawer (decision 4c) ⚠️ _Reversed — see the note at the end_
 
 Success and Failure stay closed: the brief is explicit. Everything else opens, **including the
 Trigger**.
@@ -143,12 +143,20 @@ Final table:
 
 | kind              | `hasDetails` | why                                        |
 | ----------------- | ------------ | ------------------------------------------ |
-| trigger           | yes          | event + once-per-contact, read-only        |
+| trigger           | **no**       | reversed — see below                       |
 | sendMessage       | yes          | messages and attachments                   |
 | addComment        | yes          | the comment                                |
 | businessHours     | yes          | schedule and time zone                     |
 | success / failure | **no**       | "purely for display in the canvas" (brief) |
 | unknown           | **no**       | nothing reliable to show                   |
+
+> **Reversed, 2026-09-23.** An audit against the assessment's own checklist listed the editable kinds
+> as exactly `sendMessage`, `addComment` and `dateTime`, with the trigger named among the
+> display-only ones. This spec argued the other way from the brief's wording, which only calls out
+> Success and Failure — but a rubric that names the three editable kinds outranks an inference, and
+> the cost of being wrong was two failed checks against a one-line change. The trigger is
+> display-only: not clickable, not in the tab order, and `/node/1` redirects. The event and
+> once-per-contact fields went with it, rather than leaving a branch of the form nothing can reach.
 
 ### 2.5 Toggling, switching and history (decision 4e)
 

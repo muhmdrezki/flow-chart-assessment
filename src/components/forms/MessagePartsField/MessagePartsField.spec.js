@@ -52,15 +52,92 @@ describe('MessagePartsField', () => {
     expect(lastParts(wrapper).at(-1)).toEqual({ key: expect.any(String), type: 'text', text: '' })
   })
 
-  it('adds an empty attachment', async () => {
+  it('adds an empty attachment link', async () => {
     const wrapper = mountField()
 
-    await buttonWith(wrapper, 'Add attachment').trigger('click')
+    await buttonWith(wrapper, 'Add link').trigger('click')
 
     expect(lastParts(wrapper).at(-1)).toEqual({
       key: expect.any(String),
       type: 'attachment',
       attachment: '',
+    })
+  })
+
+  describe('an attachment', () => {
+    const UPLOADED = 'data:image/png;base64,iVBORw0KGgo='
+
+    it('is previewed as the picture it is', () => {
+      const wrapper = mountField()
+
+      expect(wrapper.find('img').attributes('src')).toBe('https://files.test/menu.png')
+    })
+
+    it('is shown as a named box when it is not a picture', () => {
+      const wrapper = mountField({
+        modelValue: [{ key: 'a', type: 'attachment', attachment: 'https://files.test/terms.pdf' }],
+      })
+
+      expect(wrapper.find('img').exists()).toBe(false)
+      expect(wrapper.text()).toContain('terms.pdf')
+    })
+
+    it('keeps a link editable', () => {
+      expect(mountField().find('input[type="url"]').element.value).toBe(
+        'https://files.test/menu.png',
+      )
+    })
+
+    it('shows an uploaded file without an address nobody can read', () => {
+      const wrapper = mountField({
+        modelValue: [{ key: 'a', type: 'attachment', attachment: UPLOADED }],
+      })
+
+      expect(wrapper.find('img').attributes('src')).toBe(UPLOADED)
+      expect(wrapper.text()).toContain('Uploaded PNG')
+      expect(wrapper.find('input[type="url"]').exists()).toBe(false)
+    })
+  })
+
+  describe('uploading', () => {
+    const chooseFiles = async (wrapper, files) => {
+      const input = wrapper.find('input[type="file"]')
+      Object.defineProperty(input.element, 'files', { value: files, writable: true })
+      await input.trigger('change')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+
+    const fileOf = (name = 'photo.png') =>
+      new File([new Uint8Array([1, 2, 3])], name, { type: 'image/png' })
+
+    it('adds the file beside whatever is already there', async () => {
+      const wrapper = mountField()
+
+      await chooseFiles(wrapper, [fileOf()])
+
+      const added = lastParts(wrapper)
+      expect(added).toHaveLength(3)
+      expect(added[0]).toEqual(PARTS[0])
+      expect(added.at(-1).attachment.startsWith('data:image/png;base64,')).toBe(true)
+    })
+
+    it('takes several files at once', async () => {
+      const wrapper = mountField()
+
+      await chooseFiles(wrapper, [fileOf('one.png'), fileOf('two.png')])
+
+      expect(lastParts(wrapper)).toHaveLength(4)
+    })
+
+    it('says so when a file is too big to carry, and adds nothing', async () => {
+      const wrapper = mountField()
+      const huge = fileOf('huge.png')
+      Object.defineProperty(huge, 'size', { value: 3 * 1024 * 1024 })
+
+      await chooseFiles(wrapper, [huge])
+
+      expect(wrapper.find('[role="alert"]').text()).toContain('larger than 2 MB')
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined()
     })
   })
 

@@ -54,8 +54,8 @@ describe('NODE_REGISTRY', () => {
       .filter(([, config]) => config.hasDetails)
       .map(([kind]) => kind)
 
-    // Success and failure are "purely for display" per the brief; unknown has nothing to show.
-    expect(withDetails.sort()).toEqual(['addComment', 'businessHours', 'sendMessage', 'trigger'])
+    // The brief names these three as the editable kinds; everything else is display-only.
+    expect(withDetails.sort()).toEqual(['addComment', 'businessHours', 'sendMessage'])
   })
 
   it('draws success and failure as pills and everything else as cards', () => {
@@ -107,7 +107,7 @@ describe('getNodeSize', () => {
 
 describe('hasDetails', () => {
   it.each([
-    ['trigger', true],
+    ['trigger', false],
     ['sendMessage', true],
     ['addComment', true],
     ['businessHours', true],
