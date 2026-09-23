@@ -4,6 +4,41 @@ Newest entries first.
 
 ---
 
+## 2026-09-23: Day 3: Spec 03 + Feature 3a (create-node foundation)
+
+Branch: `feature/03a-create-foundation` · Spec: `docs/specs/03-create-node.md` (confirmed)
+
+**Done**
+- Merged the Feature 2 stack (#4–#6) into `main`.
+- Wrote Spec 03 and confirmed decisions 3a–3j with the user: an "Add after" select, inserting
+  between steps, positions below the parent, business hours creating its own success/failure
+  branches, Mon–Fri 09:00–17:00 defaults, payload-style ids, required title/description (60/200),
+  a pessimistic store update, a right-hand drawer, and centring the canvas on the new node.
+- PR 3a (logic only): `validation.js`, `nodeIds.js`, `nodeFactory.js`, `placement.js`, the registry's
+  `creatable`/`canHaveChildren` flags, `DEFAULT_TIMES`, and the store's `insertNodes`.
+- Code review (high): 9 findings, all addressed. Two were real bugs (see below).
+- Tests: 26 files, 462 tests, all passing.
+
+**Bugs the review caught**
+- The follower shift was "snap under the new node" rather than "move down by the space added", so a
+  branch the user had dragged far down would jump back up. It's now a relative shift, always downward.
+- Reparented followers moved only vertically, so after a business-hours insert they stayed centred
+  under the condition instead of under their new parent, and a later insert on the failure branch
+  could overlap them. The shift now moves both axes.
+
+**Decisions**
+- The insert maths lives in `placement.js` (`getInsertShift`, `shiftSubtree`) as pure functions; the
+  store only applies them, which makes the edge cases unit-testable.
+- `creatable` is an explicit registry flag rather than being derived from `editable`, so Spec 04's
+  trigger decision can't accidentally add "Trigger" to the create form.
+
+**Next**
+- PR 3b: `flowApi.createNode` + the `useCreateNode` mutation.
+- Then 3c (UI kit: inputs, select, drawer) and 3d (the form, header button, centring), using the
+  newly installed `frontend-design` skill.
+
+---
+
 ## 2026-09-22: Day 2: Features 2b + 2c (node components, canvas wiring)
 
 Branches: `feature/02b-node-components` → `feature/02c-node-canvas` (stacked on 2a)
