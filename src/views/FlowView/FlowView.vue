@@ -5,6 +5,7 @@ import BaseButton from '@/components/ui/BaseButton/BaseButton.vue'
 import BaseIcon from '@/components/ui/BaseIcon/BaseIcon.vue'
 import BaseIconButton from '@/components/ui/BaseIconButton/BaseIconButton.vue'
 import BaseSpinner from '@/components/ui/BaseSpinner/BaseSpinner.vue'
+import BaseToast from '@/components/ui/BaseToast/BaseToast.vue'
 import EmptyState from '@/components/ui/EmptyState/EmptyState.vue'
 import FlowCanvas from '@/components/canvas/FlowCanvas/FlowCanvas.vue'
 import NodeDetailsDrawer from '@/components/drawer/NodeDetailsDrawer/NodeDetailsDrawer.vue'
@@ -50,9 +51,16 @@ function openCreate() {
   isCreateOpen.value = true
 }
 
+/*
+ * What just happened, said out loud. A write that leaves the panel open — saving — otherwise
+ * announces itself only by going grey, which is far too quiet to notice.
+ */
+const toast = ref('')
+
 /** The canvas moves to the new node, so the user sees where it was added. */
 function onCreated(nodeId) {
   canvas.value?.focusNode(nodeId)
+  toast.value = `“${store.nodeDisplayById.get(nodeId)?.title ?? 'Step'}” added`
 }
 </script>
 
@@ -120,7 +128,14 @@ function onCreated(nodeId) {
       <CreateNodeDrawer :open="isCreateOpen" @close="isCreateOpen = false" @created="onCreated" />
 
       <!-- Driven by the route: /node/:id renders this same view with one node selected. -->
-      <NodeDetailsDrawer :node="selectedNode" @close="close" />
+      <NodeDetailsDrawer
+        :node="selectedNode"
+        @close="close"
+        @saved="toast = `“${$event}” saved`"
+        @deleted="toast = `“${$event}” deleted`"
+      />
+
+      <BaseToast :message="toast" @close="toast = ''" />
     </main>
   </div>
 </template>

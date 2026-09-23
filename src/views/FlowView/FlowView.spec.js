@@ -301,6 +301,59 @@ describe('FlowView', () => {
     })
   })
 
+  describe('saying what happened', () => {
+    const toast = () => document.body.querySelector('[role="status"]')
+    const details = (wrapper) => wrapper.findComponent({ name: 'NodeDetailsDrawer' })
+
+    beforeEach(() => {
+      document.body.innerHTML = ''
+      useFlowStore().hydrate(payload)
+    })
+
+    it('says nothing until something happens', () => {
+      mountView()
+      expect(toast()).toBeNull()
+    })
+
+    it('names the step that was saved', async () => {
+      const wrapper = mountView()
+
+      details(wrapper).vm.$emit('saved', 'Away Message')
+      await flushPromises()
+
+      expect(toast().textContent).toContain('“Away Message” saved')
+    })
+
+    it('names the step that was deleted', async () => {
+      const wrapper = mountView()
+
+      details(wrapper).vm.$emit('deleted', 'Away Message')
+      await flushPromises()
+
+      expect(toast().textContent).toContain('“Away Message” deleted')
+    })
+
+    it('names the step that was added', async () => {
+      const wrapper = mountView()
+
+      wrapper.findComponent({ name: 'CreateNodeDrawer' }).vm.$emit('created', 'e879e4')
+      await flushPromises()
+
+      expect(toast().textContent).toContain('“Add Comment #1” added')
+    })
+
+    it('clears itself once it has been read', async () => {
+      const wrapper = mountView()
+      details(wrapper).vm.$emit('saved', 'Away Message')
+      await flushPromises()
+
+      wrapper.findComponent({ name: 'BaseToast' }).vm.$emit('close')
+      await flushPromises()
+
+      expect(toast()).toBeNull()
+    })
+  })
+
   describe('undo and redo', () => {
     const button = (wrapper, name) =>
       wrapper

@@ -75,6 +75,16 @@ error states legible, matches the create form, and means a half-typed time never
 - Saving shows the button as busy, and the panel can't be dismissed while it is in flight (the
   `dismissible` prop `BaseDrawer` already has).
 - A failure keeps the drawer open with the message under its field, like the create form.
+- **A success keeps it open too**, so the card can be watched changing behind it and the next edit
+  doesn't mean finding the step again. Creating closes its drawer instead, because creating is one
+  task finished; editing is usually several passes.
+
+  **Added 2026-09-23:** that left a save announcing itself only by the Save button going grey, which
+  nobody notices. A toast now names what happened — _"Away Message" saved_ — in the bottom-left
+  corner, clear of the canvas's zoom controls, and it says the same for a delete and for a create.
+  It is `role="status"`, so a screen reader mentions it at the next pause rather than interrupting.
+  Nothing in the brief asks for this; the README says so.
+
 - Closing the drawer with unsaved changes **discards them**, and the drawer says so before it does:
   a small inline confirmation in the footer, not a second dialog on top of a dialog.
 - Switching to another node starts again from it. That one **doesn't** ask first — see §3.4.

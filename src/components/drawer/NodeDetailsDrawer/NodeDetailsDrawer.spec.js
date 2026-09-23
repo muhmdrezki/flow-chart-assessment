@@ -136,6 +136,25 @@ describe('NodeDetailsDrawer', () => {
       await vi.waitFor(() => expect(button(wrapper, 'Save changes').props('disabled')).toBe(true))
     })
 
+    it('says what it saved, so the change is not announced only by a greyed button', async () => {
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Renamed' })
+
+      await button(wrapper, 'Save changes').trigger('click')
+      await vi.waitFor(() => expect(wrapper.emitted('saved')).toEqual([['Renamed']]))
+    })
+
+    it('says nothing when the save failed', async () => {
+      mutation.save.mockRejectedValue(new Error('Nope'))
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Renamed' })
+
+      await button(wrapper, 'Save changes').trigger('click')
+      await vi.waitFor(() => expect(mutation.save).toHaveBeenCalled())
+
+      expect(wrapper.emitted('saved')).toBeUndefined()
+    })
+
     it('keeps what the user typed when the save fails', async () => {
       mutation.save.mockRejectedValue(new Error('Nope'))
       const wrapper = mountDrawer()
@@ -333,6 +352,25 @@ describe('NodeDetailsDrawer', () => {
       await button(wrapper, 'Delete').trigger('click')
 
       expect(deletion.remove).toHaveBeenCalledWith(AWAY_MESSAGE)
+    })
+
+    it('says which step it deleted', async () => {
+      const wrapper = mountDrawer()
+      await button(wrapper, 'Delete').trigger('click')
+
+      await button(wrapper, 'Delete').trigger('click')
+      await vi.waitFor(() => expect(wrapper.emitted('deleted')).toEqual([['Away Message']]))
+    })
+
+    it('says nothing when the delete failed', async () => {
+      deletion.remove.mockRejectedValue(new Error('Nope'))
+      const wrapper = mountDrawer()
+      await button(wrapper, 'Delete').trigger('click')
+
+      await button(wrapper, 'Delete').trigger('click')
+      await vi.waitFor(() => expect(deletion.remove).toHaveBeenCalled())
+
+      expect(wrapper.emitted('deleted')).toBeUndefined()
     })
 
     it('backs out when the user keeps the step', async () => {
