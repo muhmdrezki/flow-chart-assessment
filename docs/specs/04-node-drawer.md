@@ -110,6 +110,12 @@ comes back without the scrim: Vue Flow emits `pane-click` when the empty canvas 
 canvas passes it on as a request to close. So clicking the background closes the drawer, clicking
 another node switches to it in one click, and the canvas stays pannable throughout.
 
+**Added 2026-09-23, from using it:** that click missed about as often as it landed. Vue Flow's
+`paneClickDistance` is **0** by default, so any movement at all between pressing and releasing makes
+d3-zoom call it a pan — and a pan swallows the click, so `pane-click` never fires and the drawer
+stays open. A hand that drifts one pixel is a hand, not a pan. The canvas allows **4px** of slop
+now; a real drag still pans and still doesn't close anything.
+
 ### 2.4 Which nodes open the drawer (decision 4c) ⚠️ _Reversed — see the note at the end_
 
 Success and Failure stay closed: the brief is explicit. Everything else opens, **including the
