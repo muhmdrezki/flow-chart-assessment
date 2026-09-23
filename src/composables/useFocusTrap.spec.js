@@ -96,6 +96,55 @@ describe('useFocusTrap', () => {
     expect(onEscape).not.toHaveBeenCalled()
   })
 
+  describe('giving focus back', () => {
+    it('returns it to whatever had it when the panel opened', async () => {
+      const opener = document.createElement('button')
+      document.body.append(opener)
+      opener.focus()
+
+      const wrapper = mount(Panel, { props: { active: false }, attachTo: document.body })
+      await wrapper.setProps({ active: true })
+      await nextTick()
+
+      await wrapper.setProps({ active: false })
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(opener))
+    })
+
+    it('follows focus that moved on while the panel stayed open', async () => {
+      // A panel that leaves the page usable can be open while the user clicks something else —
+      // another node, whose details the panel then shows. Closing should return focus there.
+      const first = document.createElement('button')
+      const second = document.createElement('button')
+      document.body.append(first, second)
+      first.focus()
+
+      const wrapper = mount(Panel, { props: { active: false }, attachTo: document.body })
+      await wrapper.setProps({ active: true })
+      await nextTick()
+
+      second.focus()
+      await wrapper.setProps({ active: false })
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(second))
+    })
+
+    it('ignores focus moving about inside the panel', async () => {
+      const opener = document.createElement('button')
+      document.body.append(opener)
+      opener.focus()
+
+      const wrapper = mount(Panel, { props: { active: false }, attachTo: document.body })
+      await wrapper.setProps({ active: true })
+      await nextTick()
+
+      control('last').focus()
+      await wrapper.setProps({ active: false })
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(opener))
+    })
+  })
+
   it('stops listening when the panel is destroyed while still open', async () => {
     const wrapper = mountPanel()
     await nextTick()

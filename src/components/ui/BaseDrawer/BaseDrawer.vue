@@ -15,6 +15,12 @@ const props = defineProps({
    * not cancel, so the result can't arrive after the user thinks they've backed out.
    */
   dismissible: { type: Boolean, default: true },
+  /**
+   * A modal panel takes over the page: the rest of it is dimmed, inert and out of Tab's reach,
+   * which is right for a form the user should finish or abandon. Turn it off for a panel that
+   * describes something on the page behind it, which has to stay clickable.
+   */
+  modal: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['close'])
@@ -49,7 +55,7 @@ function setBackgroundInert(isInert) {
 // Registered before the focus trap, so on close the background stops being inert *before* the trap
 // gives focus back: focusing an inert element does nothing, and focus would fall to the body.
 watch(isOpen, async (open) => {
-  if (!open) {
+  if (!open || !props.modal) {
     setBackgroundInert(false)
     return
   }
@@ -62,6 +68,8 @@ useFocusTrap(panel, {
   onEscape: requestClose,
   // Opening lands on the first field, not on the close button that comes before it in the header.
   initialFocus: body,
+  // A non-modal panel leaves the page usable, so Tab has to be able to walk back out to it.
+  trap: () => props.modal,
 })
 
 onScopeDispose(() => setBackgroundInert(false))
@@ -70,17 +78,21 @@ onScopeDispose(() => setBackgroundInert(false))
 <template>
   <Teleport to="body">
     <Transition name="drawer">
-      <div v-if="open" class="fixed inset-0 z-40 flex justify-end">
+      <div
+        v-if="open"
+        class="fixed inset-0 z-40 flex justify-end"
+        :class="{ 'pointer-events-none': !modal }"
+      >
         <!-- A light scrim: the canvas stays visible behind the panel, but clicks go to the panel. -->
-        <div class="absolute inset-0 bg-slate-900/10" @click="requestClose" />
+        <div v-if="modal" class="absolute inset-0 bg-slate-900/10" @click="requestClose" />
 
         <div
           ref="panel"
           role="dialog"
-          aria-modal="true"
+          :aria-modal="modal ? 'true' : undefined"
           tabindex="-1"
           :aria-labelledby="titleId"
-          class="drawer-panel relative flex h-full w-full max-w-100 flex-col border-l border-slate-200 bg-white shadow-xl"
+          class="drawer-panel pointer-events-auto relative flex h-full w-full max-w-100 flex-col border-l border-slate-200 bg-white shadow-xl"
         >
           <header class="flex items-start gap-3 border-b border-slate-200 px-5 py-4">
             <span

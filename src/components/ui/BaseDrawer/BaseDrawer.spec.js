@@ -87,6 +87,67 @@ describe('BaseDrawer', () => {
     })
   })
 
+  describe('when it is not modal', () => {
+    const mountPanel = (props = {}) =>
+      mountDrawer({ modal: false, ...props }, { default: '<button data-test="inside">Go</button>' })
+
+    it('has no scrim, so the canvas behind it stays clickable', () => {
+      mountPanel()
+
+      expect(query('.fixed > div:not([role="dialog"])')).toBeNull()
+      expect(query('.fixed').classList.contains('pointer-events-none')).toBe(true)
+      expect(panel().classList.contains('pointer-events-auto')).toBe(true)
+    })
+
+    it('does not claim the rest of the page is unavailable', () => {
+      mountPanel()
+      expect(panel().getAttribute('aria-modal')).toBeNull()
+    })
+
+    it('leaves the rest of the page reachable', async () => {
+      const behind = document.createElement('div')
+      document.body.append(behind)
+
+      mountPanel()
+      await nextTick()
+
+      expect(behind.inert).toBeFalsy()
+    })
+
+    it('still moves focus into the panel when it opens', async () => {
+      const wrapper = mount(BaseDrawer, {
+        props: { open: false, title: 'Node details', modal: false },
+        slots: { default: '<button data-test="inside">Go</button>' },
+        attachTo: document.body,
+      })
+
+      await wrapper.setProps({ open: true })
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(query('[data-test="inside"]')))
+    })
+
+    it('still asks to close on Escape', async () => {
+      const wrapper = mountPanel()
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+
+      expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
+    it('lets Tab walk out of the panel, since the page behind is still usable', async () => {
+      mountPanel()
+      const last = query('[data-test="inside"]')
+      last.focus()
+
+      // The trap would send focus back to the first control here; without it, nothing moves and
+      // the browser is left to hand focus to whatever comes next on the page.
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
+      await nextTick()
+
+      expect(document.activeElement).toBe(last)
+    })
+  })
+
   describe('keyboard focus', () => {
     it('moves into the panel when it opens', async () => {
       const wrapper = mount(BaseDrawer, {
