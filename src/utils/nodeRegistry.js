@@ -11,9 +11,9 @@ const PILL_SIZE = Object.freeze({ width: 96, height: 28 })
  * - `purpose` is the line under the drawer's title, saying what the step does (as in the mockup).
  * - `deletable` is false for the trigger, which a flow can't be without, and for the branch pills,
  *   which belong to their condition.
- * - `hasDetails` decides whether clicking a node opens the details drawer. Success and failure are
- *   "purely for display in the canvas" per the brief. It says nothing about *editing*: the trigger
- *   opens a drawer whose event is read-only (Spec 04, decision 4c).
+ * - `hasDetails` decides whether clicking a node opens the details drawer. Only the three kinds the
+ *   brief calls editable have one: success and failure are "purely for display in the canvas", and
+ *   the trigger is the flow's entry point rather than a step (Spec 04, decision 4c).
  * - `hasInput` is false for the trigger: a flow starts there, so nothing connects into it.
  * - `creatable` marks the kinds the create form offers. It is separate from `hasDetails` so the
  *   form's type list can never offer a kind the node factory cannot build.
@@ -26,7 +26,7 @@ export const NODE_REGISTRY = Object.freeze({
     label: 'Trigger',
     icon: 'zap',
     variant: 'card',
-    hasDetails: true,
+    hasDetails: false,
     purpose: 'Starts the flow when this happens in a conversation.',
     deletable: false,
     creatable: false,

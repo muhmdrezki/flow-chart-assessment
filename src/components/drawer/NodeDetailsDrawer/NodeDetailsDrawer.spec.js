@@ -86,8 +86,8 @@ describe('NodeDetailsDrawer', () => {
   })
 
   it('calls a node without a name after its kind, as the canvas does', () => {
-    mountDrawer({ node: node(1) })
-    expect(query('h2').textContent).toBe('Trigger')
+    mountDrawer({ node: { id: 'x', type: 'addComment', data: { comment: 'Noted' } } })
+    expect(query('h2').textContent).toBe('Add Comment')
   })
 
   it('opens the form on the node’s own values', () => {
@@ -301,7 +301,9 @@ describe('NodeDetailsDrawer', () => {
       expect(button(mountDrawer(), 'Delete')).toBeDefined()
     })
 
-    it('does not offer it on the trigger, which a flow cannot be without', () => {
+    it('does not offer it on a kind that cannot be deleted', () => {
+      // The trigger never reaches this panel, but the footer asks the registry rather than
+      // assuming whatever opened it can go.
       expect(button(mountDrawer({ node: node(1) }), 'Delete')).toBeUndefined()
     })
 

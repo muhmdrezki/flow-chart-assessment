@@ -62,7 +62,7 @@ describe('NodeCard', () => {
     expect(mountCard({ type: 'addComment' }).attributes('data-kind')).toBe('addComment')
   })
 
-  describe.each(['trigger', 'sendMessage', 'addComment', 'businessHours'])(
+  describe.each(['sendMessage', 'addComment', 'businessHours'])(
     'a %s node, which has a drawer',
     (type) => {
       it('looks clickable', () => {
@@ -103,9 +103,9 @@ describe('NodeCard', () => {
     },
   )
 
-  describe('a display-only unknown node', () => {
+  describe.each(['trigger', 'unknown'])('a display-only %s node', (kind) => {
     it('does not look clickable', () => {
-      const wrapper = mountCard({ type: 'unknown' })
+      const wrapper = mountCard({ type: kind })
 
       expect(wrapper.attributes('data-has-details')).toBe('false')
       expect(wrapper.classes()).toContain('cursor-default')
@@ -113,7 +113,7 @@ describe('NodeCard', () => {
     })
 
     it('is not a button and is out of the tab order', () => {
-      const wrapper = mountCard({ type: 'unknown' })
+      const wrapper = mountCard({ type: kind })
 
       expect(wrapper.attributes('role')).toBeUndefined()
       expect(wrapper.attributes('tabindex')).toBeUndefined()
@@ -121,7 +121,7 @@ describe('NodeCard', () => {
     })
 
     it('cannot be opened from the keyboard either', async () => {
-      const wrapper = mountCard({ type: 'unknown' })
+      const wrapper = mountCard({ type: kind })
 
       await wrapper.trigger('keydown', { key: 'Enter' })
 

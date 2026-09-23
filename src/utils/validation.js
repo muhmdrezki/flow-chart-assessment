@@ -1,9 +1,12 @@
+import { isUploaded } from './attachments'
 import { DAY_LABELS, isTimeString } from './businessHours'
 import { NODE_KIND } from './nodeKind'
 import { CREATABLE_KINDS, getNodeConfig } from './nodeRegistry'
 
 export const TITLE_MAX_LENGTH = 60
 export const DESCRIPTION_MAX_LENGTH = 200
+/** Roomier than a description: a comment is the note a colleague reads on the conversation. */
+export const COMMENT_MAX_LENGTH = 1000
 
 const trimmed = (value) => (typeof value === 'string' ? value.trim() : '')
 
@@ -28,8 +31,8 @@ export function oneOf(value, allowed, message) {
 }
 
 /**
- * A link the browser can actually open. `new URL` accepts things like "mailto:" and "data:", which
- * an attachment never is, so the scheme is checked too.
+ * A link the browser can actually open. `new URL` accepts things like "mailto:", which an
+ * attachment never is, so the scheme is checked too.
  * @returns {string|null}
  */
 export function webUrl(value, label) {
@@ -39,6 +42,15 @@ export function webUrl(value, label) {
   } catch {
     return `${label} must be a web link`
   }
+}
+
+/**
+ * Where an attachment can come from: a link, or a file the user uploaded, which is carried as a
+ * `data:` URL because the payload stores attachments as URLs and nothing else.
+ * @returns {string|null}
+ */
+export function attachmentSource(value, label) {
+  return isUploaded(value) ? null : webUrl(value, label)
 }
 
 /**
@@ -79,7 +91,8 @@ function validateParts(parts = []) {
   parts.forEach((part, index) => {
     const message =
       part.type === 'attachment'
-        ? (required(part.attachment, 'A link') ?? webUrl(part.attachment, 'A link'))
+        ? (required(part.attachment, 'An attachment') ??
+          attachmentSource(part.attachment, 'An attachment'))
         : required(part.text, 'Message text')
     if (message) errors[`parts.${index}`] = message
   })
@@ -107,7 +120,11 @@ function validateDays(days = []) {
 }
 
 const DRAFT_RULES = {
-  [NODE_KIND.ADD_COMMENT]: (draft) => ({ comment: required(draft.comment, 'Comment') }),
+  // A comment can be cleared: emptying one is how you take a note back off a step, and the canvas
+  // already says "No comment" for a step that hasn't got one.
+  [NODE_KIND.ADD_COMMENT]: (draft) => ({
+    comment: maxLength(draft.comment, COMMENT_MAX_LENGTH, 'Comment'),
+  }),
   [NODE_KIND.SEND_MESSAGE]: (draft) => validateParts(draft.parts),
   [NODE_KIND.BUSINESS_HOURS]: (draft) => ({
     timezone: required(draft.timezone, 'Time zone'),

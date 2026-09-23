@@ -24,7 +24,7 @@ the flow can be created and read, but not updated or deleted.
 - **Undo/redo.** A nice-to-have in the brief, and the expensive one. Left out by decision.
 - Persistence across a refresh. Not in the brief; the README says so and says why.
 - Moving a node to a different parent. Nothing in the brief asks for re-parenting by hand.
-- Uploading a file. There is no server to upload to; an attachment is a URL in this payload.
+- ~~Uploading a file~~ — added 2026-09-23, see §2.8.
 
 ---
 
@@ -47,18 +47,24 @@ That also means a failed save leaves the canvas untouched and the user's typing 
 
 ### 2.2 What each kind lets you change (decision 5a)
 
-| kind              | fields                                                                                                                         |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| every kind        | **Title** (`name`), **Description** (`data.description`)                                                                       |
-| trigger           | **Once per contact** (a checkbox). The **event** stays read-only                                                               |
-| sendMessage       | the message parts: each text part in a textarea, each attachment with a **Remove**; **Add text** and **Add attachment by URL** |
-| addComment        | **Comment** (textarea)                                                                                                         |
-| businessHours     | the **Day \| Time** grid and the **Time zone** select (§2.5)                                                                   |
-| success / failure | no drawer at all (brief)                                                                                                       |
+| kind              | fields                                                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| every kind        | **Title** (`name`), **Description** (`data.description`)                                                                |
+| trigger           | ~~Once per contact, event read-only~~ — the trigger no longer opens a drawer (Spec 04)                                  |
+| sendMessage       | the parts: texts in textareas, attachments as preview tiles; add text, add a link, or upload a file; remove any of them |
+| addComment        | **Comment** (textarea)                                                                                                  |
+| businessHours     | the **Day \| Time** grid and the **Time zone** select (§2.5)                                                            |
+| success / failure | no drawer at all (brief)                                                                                                |
 
-The trigger's event stays read-only for the reason Spec 04 gave: the payload defines exactly one
-event, and a select listing events the product never mentions would be invented data.
-`oncePerContact` is a real boolean the payload already carries, so it is editable.
+**Reversed 2026-09-23:** the trigger is display-only, so none of this is reachable, and the form's
+trigger branch was removed rather than left as code nothing can open. The reasoning, and what
+changed it, is in Spec 04 §2.4.
+
+Two other rules moved with the audit that caused it:
+
+- **A comment can be cleared.** It was required; emptying one is how a note is taken off a step, and
+  the canvas already reads "No comment" for a step without one. Still capped, at 1000 characters.
+- **An attachment can be a file, not only a link.** See §2.8.
 
 ### 2.3 Draft, save and discard (decision 5b)
 
@@ -81,9 +87,9 @@ Shared validators from `src/utils/validation.js`, extended rather than duplicate
 | -------------- | ----------------------------------------------------------------------- |
 | Title          | required, ≤ 60 (the create form's limits)                               |
 | Description    | ≤ 200. **Not required** when editing: the payload's own nodes have none |
-| Comment        | required                                                                |
+| Comment        | optional, ≤ 1000 — clearing one is how a note comes off a step          |
 | Message        | at least one part, and a text part can't be blank                       |
-| Attachment URL | required, and a URL the browser can parse                               |
+| Attachment     | required: a web link, or a file the user uploaded (§2.8)                |
 | Business hours | each open day needs both times, valid `HH:mm`, and **end after start**  |
 
 "End after start" is the one genuinely new rule. Times are wall-clock strings in the node's own
@@ -158,7 +164,24 @@ canvas exactly as it was. Neither case re-runs the layout, so hand-dragged posit
 After a delete the node is gone, so the drawer closes: `replace('/')`, not push — Back should not
 return to a node that no longer exists.
 
-### 2.8 The drawer's purpose line (decision 5h)
+### 2.8 Attachments: previewed, and uploadable (added 2026-09-23)
+
+The first build showed an attachment as a URL text box, which loses twice: you can't see what it is,
+and you can only reference a file that is already somewhere on the web. The assessment asks for
+existing attachments shown as a preview tile, and for new ones to be uploadable.
+
+- **A tile per attachment**: the picture itself when it is one, otherwise a box with a paperclip and
+  the file's name. A link keeps its text box underneath so it stays editable; an uploaded file
+  doesn't, because its "address" is the file.
+- **Upload** reads the file into a `data:` URL and adds it as another part. The payload stores an
+  attachment as a URL and nothing else, so the file has to _become_ one — with a real backend it
+  would be POSTed and the returned URL stored instead, which is the one function that would change.
+- **2 MB per file**, because those bytes then live in memory and in every undo snapshot taken after.
+  A file over the limit is refused by name, and nothing is added.
+- Validation accepts either source: `attachmentSource` passes a `data:` URL and otherwise demands
+  http(s), so a typo in a link is still caught.
+
+### 2.9 The drawer's purpose line (decision 5h)
 
 The mockup's drawer explains the step under its title: _"Allows a branch to be created based on date
 & time conditions…"_. Spec 04 put the kind's label there instead, and then dropped it when it simply
@@ -291,14 +314,14 @@ useDeleteNode(): { remove, isPending, error }
 
 ## 5. Decisions (confirmed 2026-09-23)
 
-| #   | Question                 | Proposal                                                                                                                | Alternative(s)                                      |
-| --- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 5a  | What can be edited       | **Title and description everywhere**; comment; message parts; the grid; the trigger's once-per-contact, event read-only | Title/description only; make the event editable too |
-| 5b  | When it saves            | **An explicit Save**, with a draft until then; closing with changes asks first                                          | Save on blur, a mutation per field                  |
-| 5c  | Description when editing | **Optional** (the payload's own nodes have none)                                                                        | Required, as the create form has it                 |
-| 5d  | The times                | **Native `<input type="time">`**, seven rows always, plus copy-Monday-to-all                                            | A hand-built clock popup; free-text fields          |
-| 5e  | The time-zone list       | **Every IANA zone** from `Intl.supportedValuesOf`, labelled with today's offset                                         | A short curated list                                |
-| 5f  | Deleting a plain step    | **Its children move up**: the chain closes                                                                              | Delete the whole subtree every time                 |
-| 5g  | Deleting a condition     | **It takes both branches with it**, after a confirmation naming the count                                               | Keep the Success branch and drop Failure            |
-| 5h  | The drawer's second line | **A `purpose` per kind**, as the mockup has                                                                             | Keep the kind's label; show nothing                 |
-| 5i  | How it ships             | **Three stacked PRs** (data → editing UI → delete)                                                                      | One PR, faster to open, heavier to read             |
+| #   | Question                 | Proposal                                                                                                               | Alternative(s)                             |
+| --- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 5a  | What can be edited       | **Title and description everywhere**; comment; message parts; the grid. ~~The trigger~~ (reversed: it no longer opens) | Title/description only                     |
+| 5b  | When it saves            | **An explicit Save**, with a draft until then; closing with changes asks first                                         | Save on blur, a mutation per field         |
+| 5c  | Description when editing | **Optional** (the payload's own nodes have none)                                                                       | Required, as the create form has it        |
+| 5d  | The times                | **Native `<input type="time">`**, seven rows always, plus copy-Monday-to-all                                           | A hand-built clock popup; free-text fields |
+| 5e  | The time-zone list       | **Every IANA zone** from `Intl.supportedValuesOf`, labelled with today's offset                                        | A short curated list                       |
+| 5f  | Deleting a plain step    | **Its children move up**: the chain closes                                                                             | Delete the whole subtree every time        |
+| 5g  | Deleting a condition     | **It takes both branches with it**, after a confirmation naming the count                                              | Keep the Success branch and drop Failure   |
+| 5h  | The drawer's second line | **A `purpose` per kind**, as the mockup has                                                                            | Keep the kind's label; show nothing        |
+| 5i  | How it ships             | **Three stacked PRs** (data → editing UI → delete)                                                                     | One PR, faster to open, heavier to read    |

@@ -199,10 +199,18 @@ describe('validateNodeDraft', () => {
     })
   })
 
-  it('needs a comment', () => {
+  it('lets a comment be cleared, which is how a note is taken back off a step', () => {
     const draft = { ...draftFor('addComment'), comment: '   ' }
 
-    expect(validateNodeDraft(draft, 'addComment').comment).toBe('Comment is required')
+    expect(validateNodeDraft(draft, 'addComment')).toEqual({})
+  })
+
+  it('still limits how long a comment can be', () => {
+    const draft = { ...draftFor('addComment'), comment: 'x'.repeat(1001) }
+
+    expect(validateNodeDraft(draft, 'addComment').comment).toBe(
+      'Comment must be 1000 characters or fewer',
+    )
   })
 
   describe('a message', () => {
@@ -232,7 +240,18 @@ describe('validateNodeDraft', () => {
         parts: [{ key: 'a', type: 'attachment', attachment: 'not-a-link' }],
       }
 
-      expect(validateNodeDraft(draft, 'sendMessage')['parts.0']).toBe('A link must be a web link')
+      expect(validateNodeDraft(draft, 'sendMessage')['parts.0']).toBe(
+        'An attachment must be a web link',
+      )
+    })
+
+    it('accepts a file the user uploaded, which is carried as a data URL', () => {
+      const draft = {
+        ...draftFor('sendMessage'),
+        parts: [{ key: 'a', type: 'attachment', attachment: 'data:image/png;base64,iVBORw0KGgo=' }],
+      }
+
+      expect(validateNodeDraft(draft, 'sendMessage')).toEqual({})
     })
   })
 
