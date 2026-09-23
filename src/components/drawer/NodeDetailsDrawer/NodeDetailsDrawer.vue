@@ -18,7 +18,8 @@ const props = defineProps({
   node: { type: Object, default: null },
 })
 
-const emit = defineEmits(['close'])
+/** `saved` and `deleted` carry the step's name, so whatever announces them can say which one. */
+const emit = defineEmits(['close', 'saved', 'deleted'])
 
 const store = useFlowStore()
 const { save, isPending, error, fieldErrors, reset } = useUpdateNode()
@@ -126,7 +127,9 @@ async function onDelete() {
   try {
     // Deleting the node makes its URL name something that is no longer there, and the selection
     // follows the flow: the drawer closes itself.
+    const deleted = title.value
     await remove(shown.value.id)
+    emit('deleted', deleted)
   } catch {
     // The mutation holds the reason, and the footer says so.
   }
@@ -144,6 +147,7 @@ async function onSave() {
      */
     const node = await save(fromDraft(toRaw(shown.value), draft.value))
     saved.value = toDraft(node)
+    emit('saved', getNodeTitle(node))
   } catch {
     // The mutation holds the reason; the drawer stays open so the user keeps what they typed.
   }
