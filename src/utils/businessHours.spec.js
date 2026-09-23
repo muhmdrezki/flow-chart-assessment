@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_TIMEZONE, WEEK_DAYS, isTimeString } from './businessHours'
+import { DAY_LABELS, DEFAULT_TIMEZONE, WEEK_DAYS, isTimeString } from './businessHours'
 
 describe('WEEK_DAYS', () => {
   it('lists the payload day names in week order, starting on Monday', () => {
@@ -8,6 +8,24 @@ describe('WEEK_DAYS', () => {
 
   it('cannot be modified', () => {
     expect(Object.isFrozen(WEEK_DAYS)).toBe(true)
+  })
+})
+
+describe('DAY_LABELS', () => {
+  it('names every day the payload can use', () => {
+    expect(WEEK_DAYS.map((day) => DAY_LABELS[day])).toEqual([
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ])
+  })
+
+  it('cannot be modified', () => {
+    expect(Object.isFrozen(DAY_LABELS)).toBe(true)
   })
 })
 
