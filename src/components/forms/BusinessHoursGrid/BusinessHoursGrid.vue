@@ -69,9 +69,10 @@ function copyFirstDayToAll() {
     </FormField>
 
     <div class="flex flex-col gap-1.5">
-      <div class="flex items-baseline justify-between">
+      <div class="flex items-center justify-between gap-3">
         <p class="text-[13px] font-semibold text-slate-600">Opening hours</p>
-        <BaseButton variant="ghost" size="sm" :disabled="disabled" @click="copyFirstDayToAll">
+        <!-- Bordered, not a bare label: beside a heading, a ghost button reads as a second heading. -->
+        <BaseButton variant="secondary" size="sm" :disabled="disabled" @click="copyFirstDayToAll">
           Copy Monday to every day
         </BaseButton>
       </div>
