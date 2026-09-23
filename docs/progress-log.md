@@ -4,11 +4,57 @@ Newest entries first.
 
 ---
 
+## 2026-09-23: Day 3: Feature 4 (node details drawer)
+
+Branch: `feature/04-node-drawer` · Spec: `docs/specs/04-node-drawer.md`
+
+**Done**
+
+- Merged the Feature 3 stack (#7 → #8 → #9 → #10) into `main`, retargeting each PR before deleting
+  any branch. `main` is green: 572 tests at that point, build fine.
+- Wrote and confirmed Spec 04 (decisions 4a–4h), then built all three layers on one branch.
+- `getNodeProperties(node)`: a pure list of what a node has to show — the trigger's event and its
+  once-per-contact setting, a message's parts in order, a comment, and business hours as the whole
+  week with a time zone. Attachments carry their file name and whether they look like an image.
+- `useSelectedNode()`: the route is the selection. It resolves `/node/:id` to a node, toggles the
+  open one closed, switches straight to another, and sends a link that can't be opened back to `/`.
+- `NodeDetailsDrawer` + a `modal` prop on `BaseDrawer`, so this panel leaves the canvas live.
+- The canvas: a ring on the selected node, a click to open, a click on the empty canvas to close,
+  Tab to reach a card and Enter or Space to open it.
+- The trigger is now accessible, with its event read-only. The registry flag `editable` is
+  `hasDetails`, which is the question it actually answers.
+- Code review (high): 6 findings, all fixed.
+- Tests: 38 files, 675 tests. Lint clean, build fine.
+
+**What the review caught**
+
+- **The drag guard was wrong in both directions.** Written to stop a drag from opening a drawer, it
+  instead swallowed the first real click on any node that had been moved. Vue Flow's own drag
+  threshold means a press isn't a drag, and d3 already swallows the click that ends one. Checked in
+  the library source, then deleted the guard.
+- **Turning off `nodes-focusable` wasn't enough**: the node wrapper binds its keydown handler
+  regardless, so the arrow keys moved nodes inside Vue Flow without the store ever knowing.
+- Both drawers could be open at once, leaving the details panel painted over a form that had just
+  made it inert.
+
+**Worth knowing**
+
+- Checked in the browser: the deep link, the toggle, switching, Escape, the pane click, the pill
+  redirect, one tab stop per card, and the arrow keys no longer moving anything. The panel's own
+  slide can't be seen there — the automated tab is backgrounded, so Chrome doesn't paint it.
+
+**Next**
+
+- Spec 05: editing inside the drawer, including the mockup's Day | Time grid.
+
+---
+
 ## 2026-09-23: Day 3: Feature 3d (create form) — Spec 03 complete
 
 Branch: `feature/03d-create-form` · Spec: `docs/specs/03-create-node.md` §3.5
 
 **Done**
+
 - Opened PR #9 for 3c (stacked on #8).
 - `CreateNodeForm`: the four fields, messages shown once a field is left or submit is pressed, a live
   character count, the cursor jumping to the first problem, and fields locked while saving. Its
@@ -25,6 +71,7 @@ Branch: `feature/03d-create-form` · Spec: `docs/specs/03-create-node.md` §3.5
 - Tests: 35 files, 572 tests, all passing. Coverage 98.4%.
 
 **Bugs the review caught**
+
 - **Focus was handed back to an inert element.** On close, focus was restored before the background
   stopped being inert, so it fell to the body and the next Tab restarted at the top of the page.
 - **Closing during a save didn't cancel it**, so the node still arrived and the canvas panned to it
@@ -33,11 +80,13 @@ Branch: `feature/03d-create-form` · Spec: `docs/specs/03-create-node.md` §3.5
   event it never emitted.
 
 **Worth knowing**
+
 - The automated browser tab runs in the background, where Chrome throttles CSS transitions and
   animation frames, so the closing and centring animations freeze part-way there. The logic was
   verified and the rest is covered by tests; the animations need a foreground window.
 
 **Next**
+
 - Merge PRs #7–#10 when the user has reviewed them.
 - Then Spec 04: the details drawer, URL-driven, including whether `BaseDrawer` needs a non-modal mode.
 
@@ -48,6 +97,7 @@ Branch: `feature/03d-create-form` · Spec: `docs/specs/03-create-node.md` §3.5
 Branch: `feature/03c-form-ui-kit` · Spec: `docs/specs/03-create-node.md` §3.4
 
 **Done**
+
 - Opened PR #8 for 3b (stacked on #7).
 - Installed the `frontend-design` skill (personal skills folder, so it's available in every project)
   and wrote a design plan before any code. The owner steered it to "close to the brief, light and
@@ -62,6 +112,7 @@ Branch: `feature/03c-form-ui-kit` · Spec: `docs/specs/03-create-node.md` §3.4
 - Tests: 33 files, 532 tests, all passing.
 
 **Bugs found (mine and the review's)**
+
 - The trap didn't arm when a panel mounted already open (the watcher wasn't immediate), and focus
   landed on the close button instead of the first field.
 - `offsetParent`, the usual visibility check, always reports null in jsdom, so nothing counted as
@@ -75,11 +126,13 @@ Branch: `feature/03c-form-ui-kit` · Spec: `docs/specs/03-create-node.md` §3.4
   handled globally, which would break popups inside the drawer (Spec 05's pickers).
 
 **Open for Spec 04**
+
 - The create drawer is **modal** (scrim, inert background, click-outside closes), which suits a form.
   The details drawer probably needs the opposite, since the brief has it "toggled by clicking on the
   node": the canvas must stay clickable. That likely means a `modal` prop on `BaseDrawer`.
 
 **Next**
+
 - PR 3d: the create form itself, the header button, and centring the canvas on the new node.
 
 ---
@@ -89,6 +142,7 @@ Branch: `feature/03c-form-ui-kit` · Spec: `docs/specs/03-create-node.md` §3.4
 Branch: `feature/03b-create-mutation` · Spec: `docs/specs/03-create-node.md`
 
 **Done**
+
 - Opened PR #7 for 3a.
 - `flowApi.createNode`: the simulated server. It re-validates the values, assigns ids that aren't
   taken, builds the node(s) and answers after 300 ms, so the pending state is real. Invalid values
@@ -101,8 +155,9 @@ Branch: `feature/03b-create-mutation` · Spec: `docs/specs/03-create-node.md`
 - Tests: 27 files, 479 tests, all passing.
 
 **Bugs the review caught**
+
 - The create mutation inherited TanStack's default `networkMode: 'online'`, because the brief's
-  config sets `always` for queries only. With no connection the mutation is *paused*, so the drawer
+  config sets `always` for queries only. With no connection the mutation is _paused_, so the drawer
   would sit on "Creating…" forever. Creating never leaves the browser, so the mutation now sets
   `networkMode: 'always'`. There's a test that creates while offline.
 - Adding a **condition** could drop its new failure branch on top of an existing node, because only
@@ -110,12 +165,14 @@ Branch: `feature/03b-create-mutation` · Spec: `docs/specs/03-create-node.md`
   #1).
 
 **Decisions**
+
 - A create that **adds branches** re-runs the layout for the whole flow: a condition needs an extra
   column, so neighbouring branches have to make room. Ordinary inserts still keep dragged positions.
   Agreed with the user; spec §2.3 and decision 3c updated. A test asserts no two nodes overlap.
 - `positionBranches` was removed, since branch positions now come from the re-layout.
 
 **Next**
+
 - PR 3c: the UI kit (inputs, select, form field, drawer), using the `frontend-design` skill.
 - Then 3d: the form, the header button and centring on the new node.
 
@@ -126,6 +183,7 @@ Branch: `feature/03b-create-mutation` · Spec: `docs/specs/03-create-node.md`
 Branch: `feature/03a-create-foundation` · Spec: `docs/specs/03-create-node.md` (confirmed)
 
 **Done**
+
 - Merged the Feature 2 stack (#4–#6) into `main`.
 - Wrote Spec 03 and confirmed decisions 3a–3j with the user: an "Add after" select, inserting
   between steps, positions below the parent, business hours creating its own success/failure
@@ -137,6 +195,7 @@ Branch: `feature/03a-create-foundation` · Spec: `docs/specs/03-create-node.md` 
 - Tests: 26 files, 462 tests, all passing.
 
 **Bugs the review caught**
+
 - The follower shift was "snap under the new node" rather than "move down by the space added", so a
   branch the user had dragged far down would jump back up. It's now a relative shift, always downward.
 - Reparented followers moved only vertically, so after a business-hours insert they stayed centred
@@ -144,12 +203,14 @@ Branch: `feature/03a-create-foundation` · Spec: `docs/specs/03-create-node.md` 
   could overlap them. The shift now moves both axes.
 
 **Decisions**
+
 - The insert maths lives in `placement.js` (`getInsertShift`, `shiftSubtree`) as pure functions; the
   store only applies them, which makes the edge cases unit-testable.
 - `creatable` is an explicit registry flag rather than being derived from `editable`, so Spec 04's
   trigger decision can't accidentally add "Trigger" to the create form.
 
 **Next**
+
 - PR 3b: `flowApi.createNode` + the `useCreateNode` mutation.
 - Then 3c (UI kit: inputs, select, drawer) and 3d (the form, header button, centring), using the
   newly installed `frontend-design` skill.
@@ -161,6 +222,7 @@ Branch: `feature/03a-create-foundation` · Spec: `docs/specs/03-create-node.md` 
 Branches: `feature/02b-node-components` → `feature/02c-node-canvas` (stacked on 2a)
 
 **Done**
+
 - 2b: `@lucide/vue` behind `ui/BaseIcon`; `NodeCard` (cards) and `ConnectorNode` (pills), both driven
   by the registry; `nodeTypes` derived from the registry; final colour palette.
 - 2c: the store's `nodeDisplayById` (titles/descriptions, independent of positions) and registry
@@ -177,6 +239,7 @@ Branches: `feature/02b-node-components` → `feature/02c-node-canvas` (stacked o
 - Pushed the 2a → 2b → 2c stack as PRs #4, #5, #6.
 
 **Follow-ups on 2c (after review of the PRs)**
+
 - Replaced the string regexes in the 2a utilities with step-by-step code: `trimText` (HTML already
   collapses whitespace), `new URL(url, base)` for attachment names, an explicit
   `TRIGGER_EVENT_LABELS` table (an i18n library in a real implementation), and a split-and-check
@@ -188,6 +251,7 @@ Branches: `feature/02b-node-components` → `feature/02c-node-canvas` (stacked o
 - Tests: 22 files, 357 tests, all passing.
 
 **Issues hit**
+
 - An HTML comment above the pill's root element made the component render two root nodes, so
   attributes and classes couldn't be read from its root. The comment moved into the script.
 - With `nodeTypes`, Vue Flow passed every node prop to our components, and `inheritAttrs: false` kept
@@ -197,6 +261,7 @@ Branches: `feature/02b-node-components` → `feature/02c-node-canvas` (stacked o
   written directly.
 
 **Next**
+
 - Merge #4 → #5 → #6 when the user asks.
 - Then Spec 03: the Create Node form.
 
@@ -207,6 +272,7 @@ Branches: `feature/02b-node-components` → `feature/02c-node-canvas` (stacked o
 Branch: `feature/02a-node-foundation` · Spec: `docs/specs/02-custom-nodes.md` (confirmed)
 
 **Done**
+
 - Merged the Feature 1 stack (#1–#3) into `main`.
 - Spec 02 confirmed with decisions 2a–2h. The Business Hours card follows the mockup
   ("Business Hours - UTC"), and the app uses the Nunito font, self-hosted.
@@ -220,12 +286,14 @@ Branch: `feature/02a-node-foundation` · Spec: `docs/specs/02-custom-nodes.md` (
 - Tests: 19 files, 285 tests, all passing. Coverage 99.2% statements / 99.0% branches.
 
 **Decisions**
+
 - Business hours are wall-clock times in the node's own timezone, shown as stored and never converted.
   The default timezone is UTC (also for new nodes in Spec 03).
 - `getNodeTitle` moved to `nodeDescription.js` to avoid a circular import (spec §3.4).
 - ESLint ignores `.vite/` (Vite's dependency cache was being linted).
 
 **Next**
+
 - PR 2a on request, then 2b: `@lucide/vue`, BaseIcon, NodeCard, ConnectorNode.
 
 ---
@@ -235,6 +303,7 @@ Branch: `feature/02a-node-foundation` · Spec: `docs/specs/02-custom-nodes.md` (
 Branch: `feature/01-scaffold-canvas` · Spec: `docs/specs/01-scaffold-canvas.md`
 
 **Done**
+
 - Scaffolded Vite + Vue 3 + Pinia + Vue Router + Vue Flow + Vue Query + Tailwind v4, with ESLint,
   Prettier and Vitest set up.
 - Payload → Query → `store.hydrate` (normalise ids, derive edges, tree layout) → Vue Flow. Nodes
@@ -250,6 +319,7 @@ Branch: `feature/01-scaffold-canvas` · Spec: `docs/specs/01-scaffold-canvas.md`
 - Tests: 15 files, 175 tests, all passing. Coverage 98.9% statements / 99.3% branches.
 
 **Issues hit**
+
 - Node 23.3 isn't supported by Vitest 4/5 (odd-numbered Node release) → moved to Node 24 LTS and
   added `.nvmrc` + `engines`.
 - npm 11 blocks install scripts by default → approved `esbuild` and `vue-demi` in `allowScripts`.
@@ -259,11 +329,13 @@ Branch: `feature/01-scaffold-canvas` · Spec: `docs/specs/01-scaffold-canvas.md`
   invalid content, which led to the retry policy above.
 
 **Decisions**
+
 - Validation lives at the API boundary (one error path, through Query), plus a safety net in the
   view (never show a blank canvas as if it were an empty flow).
 - Two ESLint Vue rules are turned off for `*.spec.js` only (test stubs define several components).
 
 **Next**
+
 - The user reviews Feature 1 → commit, push, PR, merge into `main` when asked.
 - Then Spec 02: custom node components.
 
@@ -272,6 +344,7 @@ Branch: `feature/01-scaffold-canvas` · Spec: `docs/specs/01-scaffold-canvas.md`
 ## 2026-09-21: Day 1: Setup & planning
 
 **Done**
+
 - Read the brief and downloaded `payload.json` into `public/` (unchanged from source).
 - Analysed the payload: a flat node list with no edges and no positions; mixed id types; `businessHours` is
   stored as `dateTime`, and success/failure as `dateTimeConnector`; no descriptions.
@@ -279,8 +352,10 @@ Branch: `feature/01-scaffold-canvas` · Spec: `docs/specs/01-scaffold-canvas.md`
 - Drafted `docs/specs/01-scaffold-canvas.md`.
 
 **Decisions**
+
 - JavaScript with JSDoc types (TS is optional in the brief); Tailwind with no component library; npm.
 - Workflow per feature: spec → confirm → implement → code review → tests → log → commit on request.
 
 **Next**
+
 - Confirm Spec 01, then scaffold and implement it.

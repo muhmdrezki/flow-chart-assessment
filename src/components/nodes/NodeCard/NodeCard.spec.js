@@ -62,23 +62,70 @@ describe('NodeCard', () => {
     expect(mountCard({ type: 'addComment' }).attributes('data-kind')).toBe('addComment')
   })
 
-  describe.each(['sendMessage', 'addComment', 'businessHours'])('an editable %s node', (type) => {
-    it('looks clickable', () => {
-      const wrapper = mountCard({ type })
+  describe.each(['trigger', 'sendMessage', 'addComment', 'businessHours'])(
+    'a %s node, which has a drawer',
+    (type) => {
+      it('looks clickable', () => {
+        const wrapper = mountCard({ type })
 
-      expect(wrapper.attributes('data-editable')).toBe('true')
-      expect(wrapper.classes()).toContain('cursor-pointer')
-      expect(wrapper.classes()).toContain('hover:shadow-md')
-    })
-  })
+        expect(wrapper.attributes('data-has-details')).toBe('true')
+        expect(wrapper.classes()).toContain('cursor-pointer')
+        expect(wrapper.classes()).toContain('hover:shadow-md')
+      })
 
-  describe.each(['trigger', 'unknown'])('a display-only %s node', (type) => {
+      it('is a button the keyboard can reach', () => {
+        const wrapper = mountCard({ type })
+
+        expect(wrapper.attributes('role')).toBe('button')
+        expect(wrapper.attributes('tabindex')).toBe('0')
+      })
+
+      it.each(['Enter', ' '])('opens its drawer on %s', async (key) => {
+        const wrapper = mountCard({ type })
+
+        await wrapper.trigger('keydown', { key })
+
+        expect(wrapper.emitted('activate')).toHaveLength(1)
+      })
+
+      it('says whether it is the open one, since it toggles', () => {
+        expect(mountCard({ type, selected: true }).attributes('aria-pressed')).toBe('true')
+        expect(mountCard({ type, selected: false }).attributes('aria-pressed')).toBe('false')
+      })
+
+      it('ignores other keys, so typing elsewhere is not swallowed', async () => {
+        const wrapper = mountCard({ type })
+
+        await wrapper.trigger('keydown', { key: 'a' })
+
+        expect(wrapper.emitted('activate')).toBeUndefined()
+      })
+    },
+  )
+
+  describe('a display-only unknown node', () => {
     it('does not look clickable', () => {
-      const wrapper = mountCard({ type })
+      const wrapper = mountCard({ type: 'unknown' })
 
-      expect(wrapper.attributes('data-editable')).toBe('false')
+      expect(wrapper.attributes('data-has-details')).toBe('false')
       expect(wrapper.classes()).toContain('cursor-default')
       expect(wrapper.classes()).not.toContain('hover:shadow-md')
+    })
+
+    it('is not a button and is out of the tab order', () => {
+      const wrapper = mountCard({ type: 'unknown' })
+
+      expect(wrapper.attributes('role')).toBeUndefined()
+      expect(wrapper.attributes('tabindex')).toBeUndefined()
+      expect(wrapper.attributes('aria-pressed')).toBeUndefined()
+    })
+
+    it('cannot be opened from the keyboard either', async () => {
+      const wrapper = mountCard({ type: 'unknown' })
+
+      await wrapper.trigger('keydown', { key: 'Enter' })
+
+      expect(wrapper.emitted('activate')).toBeUndefined()
     })
   })
 
@@ -104,6 +151,6 @@ describe('NodeCard', () => {
     const wrapper = mountCard({ type: 'webhook' })
 
     expect(wrapper.findComponent(BaseIcon).props('name')).toBe('circle-help')
-    expect(wrapper.attributes('data-editable')).toBe('false')
+    expect(wrapper.attributes('data-has-details')).toBe('false')
   })
 })

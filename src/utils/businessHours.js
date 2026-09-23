@@ -2,6 +2,21 @@
 export const WEEK_DAYS = Object.freeze(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])
 
 /**
+ * Display labels for the days, spelled out rather than capitalised from the identifier.
+ * In a real implementation these would come from an i18n library, like the other user-facing
+ * labels (see `TRIGGER_EVENT_LABELS` in nodeRegistry.js).
+ */
+export const DAY_LABELS = Object.freeze({
+  mon: 'Monday',
+  tue: 'Tuesday',
+  wed: 'Wednesday',
+  thu: 'Thursday',
+  fri: 'Friday',
+  sat: 'Saturday',
+  sun: 'Sunday',
+})
+
+/**
  * Used when a business-hours node has no timezone, and as the starting value for new ones.
  * Times are wall-clock times in the node's own timezone and are never converted.
  */

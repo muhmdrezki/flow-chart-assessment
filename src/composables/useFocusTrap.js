@@ -1,4 +1,4 @@
-import { nextTick, onScopeDispose, watch } from 'vue'
+import { nextTick, onScopeDispose, toValue, watch } from 'vue'
 
 const FOCUSABLE = [
   'a[href]',
@@ -28,11 +28,15 @@ const focusableWithin = (element) => [...element.querySelectorAll(FOCUSABLE)].fi
  *   active: import('vue').Ref<boolean>,
  *   onEscape?: () => void,
  *   initialFocus?: import('vue').Ref<HTMLElement|null>,
+ *   trap?: boolean | import('vue').Ref<boolean>,
  * }} options
  *   `initialFocus` is where focus should start, when it shouldn't simply be the first control in
  *   the panel: a drawer starts on its first field rather than on the close button in its header.
+ *
+ *   `trap` turns off the Tab cycling only. A panel that leaves the rest of the page usable must let
+ *   Tab walk out of it, but it still wants focus moved in, Escape, and focus given back on close.
  */
-export function useFocusTrap(container, { active, onEscape, initialFocus }) {
+export function useFocusTrap(container, { active, onEscape, initialFocus, trap = true }) {
   let previouslyFocused = null
 
   function onKeydown(event) {
@@ -49,7 +53,7 @@ export function useFocusTrap(container, { active, onEscape, initialFocus }) {
       if (fromPanel) onEscape?.()
       return
     }
-    if (event.key !== 'Tab' || !container.value) return
+    if (event.key !== 'Tab' || !toValue(trap) || !container.value) return
 
     const focusable = focusableWithin(container.value)
     if (!focusable.length) {
@@ -69,8 +73,19 @@ export function useFocusTrap(container, { active, onEscape, initialFocus }) {
     }
   }
 
+  /*
+   * Where focus goes back to when the panel closes. A panel that leaves the page usable can be
+   * open while the user moves focus elsewhere — clicking a different node, say, which swaps the
+   * panel's contents without closing it. Remembering the latest one keeps Escape returning focus
+   * to what the panel is about now, rather than to what opened it.
+   */
+  function onFocusIn(event) {
+    if (!container.value?.contains(event.target)) previouslyFocused = event.target
+  }
+
   function stopListening() {
     document.removeEventListener('keydown', onKeydown)
+    document.removeEventListener('focusin', onFocusIn)
   }
 
   // Immediate, so a panel that is already open when it mounts is trapped too.
@@ -80,6 +95,7 @@ export function useFocusTrap(container, { active, onEscape, initialFocus }) {
       if (isActive) {
         previouslyFocused = document.activeElement
         document.addEventListener('keydown', onKeydown)
+        document.addEventListener('focusin', onFocusIn)
         // Wait for the panel to render before looking for something to focus.
         await nextTick()
         const preferred = initialFocus?.value ? focusableWithin(initialFocus.value) : []
