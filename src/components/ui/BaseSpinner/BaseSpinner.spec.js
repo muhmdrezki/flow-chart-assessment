@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BaseSpinner from './BaseSpinner.vue'
 
+/*
+ * The loading indicator. It carries its own accessible label, so "loading" is something a screen
+ * reader hears rather than something only the eye can see.
+ */
 describe('BaseSpinner', () => {
   it('announces itself as a status with a default label', () => {
     const wrapper = mount(BaseSpinner)

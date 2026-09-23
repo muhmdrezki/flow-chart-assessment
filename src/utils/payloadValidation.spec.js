@@ -5,6 +5,15 @@ import { findPayloadError } from './payloadValidation'
 const validNode = (overrides = {}) => ({ id: 'a1', parentId: -1, type: 'trigger', ...overrides })
 const errorFor = (overrides) => findPayloadError([validNode(overrides)])
 
+/*
+ * The payload arrives over the network, so it can be truncated, an error page, or JSON that simply
+ * is not a flow. This is the gate that turns any of those into one clear failure before a single
+ * node reaches the store — a half-valid flow rendering with nodes missing is far worse than an
+ * error message saying the file could not be read.
+ *
+ * Each message names the node and the field, because the first person to read it is whoever is
+ * looking at a blank screen wondering which part of the data is wrong.
+ */
 describe('findPayloadError', () => {
   it('accepts the real payload', () => {
     expect(findPayloadError(payload)).toBeNull()

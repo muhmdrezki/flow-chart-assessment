@@ -22,6 +22,11 @@ const EDITED = {
   data: { comment: 'Looked at it' },
 }
 
+/*
+ * Saving an edit, with the same shape as create and delete: the request goes through Vue Query and
+ * the store changes only in onSuccess. The negative case is the one worth having — a rejected save
+ * must leave the flow exactly as it was, so the canvas can never show an edit the "server" refused.
+ */
 describe('useUpdateNode', () => {
   let store
   let pinia

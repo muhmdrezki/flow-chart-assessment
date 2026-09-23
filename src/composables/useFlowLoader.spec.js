@@ -14,6 +14,15 @@ vi.mock('@/api/flowApi', async (importOriginal) => ({
   fetchFlow: vi.fn(),
 }))
 
+/*
+ * The one way data enters the app. Two things are asserted, and the second is the important one:
+ * the payload reaches the store, and cached data arriving again later does not overwrite what the
+ * user has since changed. Vue Query will re-deliver its cache on a remount or a refetch, so that
+ * guard is all that stands between a routine re-render and silently losing an edit.
+ *
+ * Note what this composable does not return: the data. A view gets the request status only, which
+ * is how "read nodes from the store, never from the cache" is enforced rather than merely agreed.
+ */
 describe('useFlowLoader', () => {
   let pinia
   let queryClient

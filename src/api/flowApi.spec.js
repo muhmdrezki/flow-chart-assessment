@@ -26,6 +26,19 @@ function mockFetch({ ok = true, status = 200, json = () => Promise.resolve(paylo
   return fetchMock
 }
 
+/*
+ * The simulated server. It is a delay and a validator in the same tab, but it is tested as if it
+ * were a real boundary on purpose: it is the second place every write is checked, and the point of
+ * checking twice is that the form is *one* caller, not the only conceivable one.
+ *
+ * So these tests are mostly about rejection. Each one asks the same question — if something got
+ * past the form, does the write still fail cleanly, with a message the form can show under the
+ * field it belongs to, and without the flow being touched?
+ *
+ * `fetchFlow` is the other half: the payload is fetched over the network, so it can arrive
+ * truncated, as HTML from an error page, or as JSON that simply isn't a flow. Each of those has a
+ * different right answer, which is why the retry policy is a function rather than a number.
+ */
 describe('fetchFlow', () => {
   it('requests payload.json relative to the app base URL', async () => {
     const fetchMock = mockFetch()

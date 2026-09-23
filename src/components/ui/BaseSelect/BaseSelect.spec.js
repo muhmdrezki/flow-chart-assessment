@@ -10,6 +10,12 @@ const OPTIONS = [
 
 const mountSelect = (props = {}) => mount(BaseSelect, { props: { options: OPTIONS, ...props } })
 
+/*
+ * A native select with the arrow drawn by us, since the browser's cannot be styled. That wrapper is
+ * the reason for the last test in this file: the component's root is the wrapper, and blur does not
+ * bubble out of the select inside it, so a form listening for blur on this component would never
+ * hear one. Passing it on is part of the contract, not an extra.
+ */
 describe('BaseSelect', () => {
   it('lists every option in the order given', () => {
     const labels = mountSelect()

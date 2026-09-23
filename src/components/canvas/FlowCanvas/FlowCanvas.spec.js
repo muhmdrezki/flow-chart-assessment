@@ -120,6 +120,22 @@ vi.mock('@vue-flow/controls', async () => {
   return { Controls: stubs.Controls, ControlButton: stubs.ControlButton }
 })
 
+/*
+ * Everything the canvas hands to Vue Flow, and everything it does with what comes back. Vue Flow
+ * itself is stubbed — it measures the DOM, which jsdom cannot do — so the stub stands in for it by
+ * rendering the same slots with the same props, which is exactly the contract worth testing.
+ *
+ * The cases that carry real risk are the ones about *not* doing something:
+ *
+ * - a display-only node must not open a drawer, however it is clicked;
+ * - a drag must write positions only for nodes that actually moved, and only when it ends;
+ * - Vue Flow's own graph editing is off, so nothing can connect, delete or arrow-key a node behind
+ *   the store's back — which is why the props asserting that are tested, not just assumed.
+ *
+ * The click thresholds are here for a reason a test would never have found: Vue Flow calls a click
+ * that drifts a pixel a drag, and a drag swallows the click that ends it, so the drawer silently
+ * stopped opening. Both are now asserted as numbers greater than the defaults.
+ */
 describe('FlowCanvas', () => {
   let store
 

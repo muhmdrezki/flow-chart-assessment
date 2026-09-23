@@ -14,6 +14,11 @@ const NAMES = [
   'zap',
 ]
 
+/*
+ * Icons are referenced by name so that callers — including the pure node registry — never import an
+ * SVG. The rule this suite protects: an icon with a label is announced, and one without is hidden
+ * from screen readers entirely, so a decorative glyph is never read out as a word.
+ */
 describe('BaseIcon', () => {
   it.each(NAMES)('renders the %s icon as an svg', (name) => {
     const svg = mount(BaseIcon, { props: { name } }).find('svg')

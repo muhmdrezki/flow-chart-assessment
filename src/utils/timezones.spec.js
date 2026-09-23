@@ -32,6 +32,12 @@ describe('getOffset', () => {
   })
 })
 
+/*
+ * The time-zone list comes from the browser's own IANA data rather than a bundled list, so it is
+ * always current and costs nothing to ship. Two things matter here: the labels read like the
+ * mockup's "(GMT+00:00) UTC", and a node's own zone is always in the list even if this browser has
+ * never heard of it — a select showing a value it does not contain would appear to be empty.
+ */
 describe('getTimezoneOptions', () => {
   it('labels each zone as the mockup does', () => {
     const options = getTimezoneOptions({ now: WINTER })

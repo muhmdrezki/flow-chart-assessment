@@ -33,11 +33,19 @@ export function computeLayout(
   const children = new Map(nodes.map((node) => [node.id, []]))
   const hasParent = new Set()
 
+  /*
+   * First parent wins. A second edge into the same node is dropped rather than honoured, because
+   * everything below assumes a tree: a node with two parents would be placed twice, and the second
+   * placement would silently move it out from under the first. Dropping the edge keeps the picture
+   * readable and wrong in one visible way, instead of correct-looking and wrong in several.
+   */
   for (const { source, target } of edges) {
     if (!nodeById.has(source) || !nodeById.has(target) || hasParent.has(target)) continue
     children.get(source).push(target)
     hasParent.add(target)
   }
+  // Siblings keep the payload's own order, so Success is always left of Failure — the layout is a
+  // pure function of the data, and the same flow can't come out mirrored between two loads.
   for (const siblings of children.values()) {
     siblings.sort((a, b) => order.get(a) - order.get(b))
   }
@@ -46,14 +54,29 @@ export function computeLayout(
   const visited = new Set()
   let nextSlot = 0
 
-  /** Places a subtree and returns the slot (horizontal centre) of its root. */
+  /**
+   * Places a subtree and returns the slot (horizontal centre) of its root.
+   *
+   * A "slot" is a column index, not a pixel. Only leaves claim one — `nextSlot++`, left to right in
+   * the order they are reached — and every parent takes the midpoint of its first and last child.
+   * That is the whole layout: the horizontal axis is decided by how many leaves a branch has, so a
+   * condition sits centred over its two branches and widening one branch pushes the other aside
+   * without any node needing to know about its siblings.
+   *
+   * Depth-first, and the recursion is what makes it work: a parent can't be placed until its
+   * children are, because its position is derived from theirs.
+   */
   function place(id, y) {
     visited.add(id)
     const size = getNodeSize(nodeById.get(id))
+    // Rows are spaced by the height of the node above, so taller cards push their children down
+    // rather than overlapping them — which is why a card's height lives in the registry.
     const childY = y + size.height + yGap
 
     const childSlots = []
     for (const childId of children.get(id)) {
+      // `visited` is the cycle guard: a child that has already been placed is not descended into
+      // again, so a → b → a lays out once instead of recursing until the stack gives out.
       if (!visited.has(childId)) childSlots.push(place(childId, childY))
     }
 
@@ -61,6 +84,8 @@ export function computeLayout(
       ? (childSlots[0] + childSlots[childSlots.length - 1]) / 2
       : nextSlot++
 
+    // Vue Flow positions a node by its top-left corner, so the slot's centre is shifted back by
+    // half the node's width. Pills are narrower than cards and still line up with them.
     positions.set(id, { x: slot * xGap - size.width / 2, y })
     return slot
   }

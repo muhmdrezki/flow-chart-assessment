@@ -19,6 +19,10 @@ const mountPill = (type, props = {}) =>
     props: { type, data: { title: type === 'success' ? 'Success' : 'Failure' }, ...props },
   })
 
+/*
+ * The Success and Failure pills. The brief calls them "purely for display in canvas", so the point
+ * of this suite is everything they are not: no click handler, no tab stop, no drawer.
+ */
 describe('ConnectorNode', () => {
   it.each([
     ['success', 'Success', 'check', '--color-kind-success'],

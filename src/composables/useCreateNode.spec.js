@@ -36,6 +36,18 @@ const CREATED = {
   continuationId: 'new01',
 }
 
+/*
+ * The Query-to-Pinia boundary, tested at the only place it exists: a mutation that commits on
+ * success and does nothing otherwise. A real `QueryClient` per test rather than a mock, so the
+ * retry policy, the pending flag and the error path are the library's real behaviour.
+ *
+ * The assertion that matters most is the negative one — **a failed create must leave the store
+ * exactly as it was.** Writes here are pessimistic by design (no optimistic update, no rollback),
+ * and this suite is what proves the canvas can never show a node the "server" rejected.
+ *
+ * The same three tests exist for update and delete, because the guarantee has to hold for all of
+ * them or it isn't a guarantee.
+ */
 describe('useCreateNode', () => {
   let store
   let pinia
@@ -102,6 +114,11 @@ describe('useCreateNode', () => {
     expect(composable.isPending.value).toBe(false)
   })
 
+  /*
+   * Vue Query pauses mutations when it thinks the network is down. This "server" is a timeout in
+   * the same tab, so there is nothing to wait for — without `networkMode: 'always'` the app would
+   * appear to hang offline while a create sat queued forever.
+   */
   it('still creates when the browser reports no connection', async () => {
     // Creating never leaves the browser, so it must not wait for a connection to come back.
     createNode.mockResolvedValue(CREATED)
@@ -119,6 +136,8 @@ describe('useCreateNode', () => {
   describe('when the request fails', () => {
     const rejectWith = (error) => createNode.mockRejectedValue(error)
 
+    // The pessimistic guarantee, stated as a test: nothing reaches the flow until the write
+    // succeeded. Without it, a rejected create would flash a node onto the canvas and take it away.
     it('leaves the store untouched', async () => {
       rejectWith(new NodeValidationError({ title: 'Title is required' }))
       const { create } = mountComposable()
@@ -146,6 +165,8 @@ describe('useCreateNode', () => {
       expect(composable.fieldErrors.value).toEqual({})
     })
 
+    // Invalid input fails the same way however many times it is sent, so retrying would only make
+    // the user wait longer for the message telling them what to fix.
     it('does not retry, so a rejected create fails once', async () => {
       rejectWith(new Error('Network down'))
       const { create } = mountComposable()

@@ -9,6 +9,23 @@ import { HISTORY_LIMIT, useFlowStore } from './flow'
 const CARD = getNodeSize({ type: 'sendMessage' }).height
 const PILL = getNodeSize({ type: 'dateTimeConnector', data: { connectorType: 'success' } }).height
 
+/*
+ * The store is the single source of truth for the flow, so this is the suite that matters most:
+ * everything the canvas draws and everything the drawer edits comes from here, and a bug in an
+ * action corrupts the document rather than just one screen.
+ *
+ * Three things get the most attention, because they are where the real risk is:
+ *
+ * 1. `insertNodes` — the only action that both re-parents nodes and moves them. Getting it wrong
+ *    detaches a branch or drops one step on top of another.
+ * 2. Snapshots — undo restores a whole node list, so the tests check that a snapshot is a *copy*
+ *    and contains no reactive proxy. Both of those failed in the browser while every test passed,
+ *    which is why they are asserted explicitly now.
+ * 3. `hydrate` running once — Vue Query can re-deliver cached data at any time, and the guard is
+ *    all that stands between that and silently throwing away the user's edits.
+ *
+ * A fresh Pinia per test, so no test can be affected by what another one left behind.
+ */
 describe('useFlowStore', () => {
   let store
 
@@ -40,6 +57,11 @@ describe('useFlowStore', () => {
       expect(store.nodes).toHaveLength(7)
     })
 
+    /*
+     * The guard that makes the Query-to-Pinia boundary safe. Query may hand back its cached payload
+     * on a remount or a refetch; without this, ten minutes of editing would vanish and look like the
+     * app had reset itself. The test edits first, then re-hydrates with a different flow entirely.
+     */
     it('ignores later calls so user changes are never overwritten', () => {
       store.hydrate(payload)
       store.updateNodePositions([{ id: '1', position: { x: 999, y: 999 } }])
@@ -50,6 +72,8 @@ describe('useFlowStore', () => {
       expect(store.nodeById.get('1').position).toEqual({ x: 999, y: 999 })
     })
 
+    // Sharing would mean the "server's" copy and the store's copy are the same object, so editing a
+    // node here would also change what a refetch is compared against.
     it('does not share objects with the payload it was given', () => {
       const raw = structuredClone(payload)
       store.hydrate(raw)
@@ -59,6 +83,8 @@ describe('useFlowStore', () => {
       expect(store.nodeById.get('e879e4').data.comment).toBe('User message during off hours')
     })
 
+    // A half-hydrated store is worse than an empty one: `isHydrated` staying false is what lets the
+    // view show "couldn't display the flow" rather than a canvas missing most of its nodes.
     it('leaves the store untouched if the payload cannot be processed', () => {
       expect(() => store.hydrate([null])).toThrow()
       expect(store.nodes).toEqual([])
@@ -155,6 +181,15 @@ describe('useFlowStore', () => {
     })
   })
 
+  /*
+   * The riskiest action in the store, and the longest block here for that reason. Creating a step
+   * does three things at once — adds nodes, re-parents whatever used to follow, and moves that
+   * branch down — and each one can fail in a way the others hide. A detached branch still renders;
+   * two nodes on the same spot still render.
+   *
+   * So the assertions come in pairs: what the tree now says (parentId, edges) and where things now
+   * are (positions, and `overlappingPairs`, which checks no two boxes touch anywhere in the flow).
+   */
   describe('insertNodes', () => {
     beforeEach(() => store.hydrate(payload))
 
@@ -218,6 +253,11 @@ describe('useFlowStore', () => {
       })
     })
 
+    /*
+     * The splice: the case the "+" on a connector relies on. A step added here must end up *in* the
+     * chain rather than beside it, so what used to follow the parent now follows the new step and
+     * moves down far enough to make room — and everything else in the flow stays exactly put.
+     */
     describe('between a step and what used to follow it', () => {
       // Away Message → Add Comment #1, with the new step going in between them.
       let before
@@ -281,6 +321,12 @@ describe('useFlowStore', () => {
       expect(node('1').position).toEqual({ x: 999, y: 999 })
     })
 
+    /*
+     * A condition arrives as three nodes at once and is the case that forced snapshots on undo: it
+     * widens the flow, so the layout runs again and every position in the tree can move. The
+     * branches must stay attached to it, and the chain must continue on the success side — a flow
+     * that forked into nothing would look fine on the canvas and be wrong.
+     */
     describe('a business hours node', () => {
       const created = [
         {
@@ -413,6 +459,11 @@ describe('useFlowStore', () => {
     })
   })
 
+  /*
+   * The only action a drag produces, and it is called once when the drag ends rather than per
+   * frame — Vue Flow moves the node itself while the pointer is down. That is why it takes a list:
+   * dragging a multi-selection is one change, and so one undo entry.
+   */
   describe('updateNodePositions', () => {
     beforeEach(() => store.hydrate(payload))
 
@@ -426,6 +477,8 @@ describe('useFlowStore', () => {
       expect(store.nodeById.get('d09c08').position).toEqual({ x: 3, y: 4 })
     })
 
+    // Vue Flow goes on mutating the position objects it hands over, so keeping the reference would
+    // let the canvas move a node behind the store's back — and undo would restore the moved value.
     it('copies the position rather than keeping the caller’s object', () => {
       const position = { x: 1, y: 2 }
       store.updateNodePositions([{ id: '1', position }])
@@ -456,6 +509,8 @@ describe('useFlowStore', () => {
       expect(store.nodes).toHaveLength(7)
     })
 
+    // The drawer edits a draft that has no idea where the node sits, so a save must not be able to
+    // move it. Saving a title and watching the card jump across the canvas would be the bug.
     it('keeps the position it already had, since editing never moves a node', () => {
       const before = { ...store.nodeById.get('e879e4').position }
 
@@ -477,6 +532,16 @@ describe('useFlowStore', () => {
     })
   })
 
+  /*
+   * Delete is given its consequences rather than working them out: `nodeRemoval.js` decides what
+   * goes, what is re-parented and what moves up, and this action applies all of it in one step.
+   * That split is deliberate — the rules are pure and heavily tested next door, and the drawer can
+   * ask the same function what a delete would take *before* the user confirms it.
+   *
+   * The invariant these tests protect: a delete must never leave the chain broken. Whatever
+   * followed the deleted step is handed a new parent in the same operation, so no intermediate
+   * state exists where a node's parent is gone.
+   */
   describe('removeNodes', () => {
     beforeEach(() => store.hydrate(payload))
 
@@ -487,6 +552,8 @@ describe('useFlowStore', () => {
       expect(store.nodes).toHaveLength(6)
     })
 
+    // Deleting a step in the middle closes the chain: its children are given its parent, and
+    // because edges are derived, the line redraws itself with no edge bookkeeping at all.
     it('hands the orphans to their new parent, so the edge follows', () => {
       store.removeNodes({
         removeIds: ['b6a0c1'],
@@ -509,6 +576,8 @@ describe('useFlowStore', () => {
       expect(store.nodeById.get('e879e4').position.y).toBe(before - 100)
     })
 
+    // Deleting must not re-tidy the canvas. Running the layout again would be easier and would
+    // throw away every drag the user had made, which is the trade-off placement.js exists for.
     it('leaves every other position alone, so a dragged node stays where it was put', () => {
       store.updateNodePositions([{ id: 'b0653a', position: { x: 999, y: 888 } }])
 
@@ -525,6 +594,16 @@ describe('useFlowStore', () => {
     })
   })
 
+  /*
+   * Undo keeps snapshots of the whole node list rather than an inverse per action, because one
+   * action already forces it: creating a condition re-lays out the flow, so taking it back means
+   * restoring every position. The table below runs the same four assertions over all four kinds of
+   * change, which is the point — with one mechanism there is nothing action-specific to get wrong.
+   *
+   * Two of these tests exist because of bugs found in the browser, not in CI: a snapshot must be a
+   * *copy* (holding a reference would "restore" the state the user is already in) and must contain
+   * no reactive proxy (Vue's reactivity leaking into a layer that is meant to be plain data).
+   */
   describe('undo and redo', () => {
     beforeEach(() => store.hydrate(payload))
 
@@ -615,6 +694,9 @@ describe('useFlowStore', () => {
       expect(store.nodes).toHaveLength(7)
     })
 
+    // Deleting a condition takes six nodes, and undo has to bring back the parent links between
+    // them too — which it does for free, because the snapshot holds the nodes and the edges are
+    // derived from what is restored.
     it('brings back a deleted step with everything that went with it', () => {
       store.removeNodes({
         removeIds: ['d09c08', '161f52', '28c4b9', 'b0653a', 'b6a0c1', 'e879e4'],
@@ -678,6 +760,8 @@ describe('useFlowStore', () => {
       expect(ids()).toHaveLength(7)
     })
 
+    // The only sane answer to "what does redo mean after you did something else": the branch redo
+    // was going to follow no longer describes a flow that ever existed.
     it('forgets the redo branch once something new is done', () => {
       create()
       store.undo()

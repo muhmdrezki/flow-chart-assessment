@@ -15,6 +15,20 @@ export const HISTORY_LIMIT = 50
 /**
  * Single source of truth for the flow graph. Vue Query only loads the payload; once it's
  * hydrated here, nothing reads the query cache for nodes again.
+ *
+ * The two libraries are easy to confuse, so the division is worth stating: **Query owns requests,
+ * Pinia owns the document.** A query cache answers "what did the server last say?", which is the
+ * wrong question for a flow the user is editing — the answer stops being true the moment they drag
+ * a node, and it is keyed and invalidated on Query's terms rather than the app's. So the payload is
+ * fetched once, handed over here, and never read again.
+ *
+ * The boundary is deliberately one-way and narrow: one `hydrate` call in, and three mutation
+ * `onSuccess` handlers calling `insertNodes` / `replaceNode` / `removeNodes`. Nothing writes to
+ * this store optimistically, so the canvas can never show a change the "server" went on to reject,
+ * and nothing in a component holds its own copy of a node to drift out of step.
+ *
+ * Everything else here is derived — edges from `parentId`, positions from the tree, the display
+ * text from names and data — so there is exactly one thing to keep correct: the node list.
  */
 export const useFlowStore = defineStore('flow', () => {
   /** @type {import('vue').Ref<import('@/utils/graph').FlowNode[]>} */
@@ -115,6 +129,12 @@ export const useFlowStore = defineStore('flow', () => {
    * @param {import('@/utils/graph').RawNode[]} raw
    */
   function hydrate(raw) {
+    /*
+     * The guard is the whole reason this is safe to call from a query. Vue Query may re-deliver its
+     * cached data — a remount, a refetch, a devtools nudge — and without this, a flow the user had
+     * been editing for ten minutes would be silently replaced by the payload it started from.
+     * Seeding happens once; after that this store is the newer truth and the cache is history.
+     */
     if (isHydrated.value) return
 
     // Query data arrives as a reactive proxy, which structuredClone can't copy.

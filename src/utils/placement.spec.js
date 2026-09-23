@@ -15,6 +15,16 @@ const pill = (id, x = 0, y = 0) => ({
 })
 const centreOf = (node, size) => node.position.x + size.width / 2
 
+/*
+ * Where a *new* node goes, as opposed to where the whole flow goes. The distinction is the reason
+ * this module exists: re-running the layout after every insert would be simpler and would silently
+ * undo every drag the user had made, so an insert moves the least it can instead.
+ *
+ * Two properties are worth watching here, because breaking either is invisible until someone has
+ * arranged a flow by hand: followers move by a **distance** rather than to a computed position (so
+ * a dragged branch keeps its own offset), and they only ever move **down** (so an insert can never
+ * pull a branch back up over something else).
+ */
 describe('positionBelow', () => {
   it('puts the node one row below its parent', () => {
     const parent = card('parent', 100, 200)

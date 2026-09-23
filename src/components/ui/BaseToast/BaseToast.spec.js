@@ -13,6 +13,14 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+/*
+ * How a write announces itself. Saving leaves the drawer open, so without this a successful save
+ * was visible only as a button going grey.
+ *
+ * It is role="status" rather than an alert on purpose: a screen reader should mention it at the
+ * next pause rather than interrupt what the user is doing. It also clears itself, so the caller
+ * sets a message and never has to remember to unset one.
+ */
 describe('BaseToast', () => {
   it('says nothing when there is nothing to say', () => {
     mountToast({ message: '' })

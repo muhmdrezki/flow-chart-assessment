@@ -19,6 +19,16 @@ const CONNECTOR_KINDS = {
 }
 
 /**
+ * The one place the payload's shape is read. Two of the five kinds need a second field to identify
+ * them, and that discriminator is exactly the sort of knowledge that spreads through a codebase if
+ * it isn't fenced in: `data.action === 'businessHours'` appearing in three components is three
+ * places to update when a sixth kind arrives.
+ *
+ * Anything unrecognised is `UNKNOWN` rather than an error. A flow is a document, and a document
+ * from a newer version of the product should still be readable — the canvas draws a plain card with
+ * a question mark and refuses to edit it, which is friendlier than a blank screen and safer than
+ * guessing.
+ *
  * @param {{ type?: string, data?: Record<string, any> } | undefined} node
  * @returns {string} one of NODE_KIND
  */

@@ -6,6 +6,15 @@ const PILL_SIZE = Object.freeze({ width: 96, height: 28 })
 /**
  * Everything that differs between node kinds, in one place, so components never branch on type.
  *
+ * This is the table a reviewer should be able to read instead of hunting through components. Each
+ * flag is a rule that would otherwise be an `if` in two or three files, drifting apart the first
+ * time one of them is updated alone — `hasDetails` is checked by the card (clickable? in the tab
+ * order?) and again by the route guard (can this URL open?), and `canHaveChildren` decides both
+ * where a "+" appears and what the create form will accept. Enforced twice, stated once.
+ *
+ * Being data rather than code is also what keeps it testable: a spec can walk every kind and assert
+ * the invariants hold, which is how "a pill must not be deletable" stays true for kinds added later.
+ *
  * - `icon` is a name that `ui/BaseIcon` maps to an SVG, which keeps this file free of Vue imports.
  * - `accent` is the CSS custom property shared by the node and its outgoing edges.
  * - `purpose` is the line under the drawer's title, saying what the step does (as in the mockup).

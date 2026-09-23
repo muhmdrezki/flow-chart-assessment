@@ -18,12 +18,26 @@ const SUCCESS = '161f52'
 const AWAY_MESSAGE = 'b6a0c1'
 const ADD_COMMENT = 'e879e4'
 
+/*
+ * What a delete takes with it — the rule, worked out as data before anything is removed.
+ *
+ * Being a pure function is the point: the drawer calls it to *describe* the delete before the user
+ * confirms ("Delete Business Hours, both its branches and the 3 steps under them?"), and the store
+ * then applies the very same answer. A warning and a delete that could disagree would be worse than
+ * no warning at all, and this shape makes disagreeing impossible.
+ *
+ * The two kinds of step behave differently on purpose, and that asymmetry is what these tests pin:
+ * a plain step closes the chain behind it, while a condition takes its branches with it because
+ * they were created with it and mean nothing on their own.
+ */
 describe('getRemoval', () => {
   describe('a plain step', () => {
     it('takes only itself', () => {
       expect(getRemoval(laidOut(), AWAY_MESSAGE).removeIds).toEqual([AWAY_MESSAGE])
     })
 
+    // The whole reason a delete is not just a filter: a step in the middle has children, and they
+    // have to be given a new parent in the same breath or the flow falls into two pieces.
     it('hands what came after it to its parent, so the chain closes', () => {
       const nodes = laidOut()
 
@@ -32,6 +46,8 @@ describe('getRemoval', () => {
       ])
     })
 
+    // Cosmetic but load-bearing: the row the deleted step occupied would otherwise stay empty, so
+    // the chain reads as if something were still missing. dy is negative — it only ever moves up.
     it('moves that subtree up into the row it left', () => {
       const nodes = laidOut()
       const away = nodes.find((node) => node.id === AWAY_MESSAGE)
@@ -54,6 +70,9 @@ describe('getRemoval', () => {
   })
 
   describe('a condition', () => {
+    // A Success or Failure pill is created with its condition and means nothing without it, so a
+    // condition cannot be deleted while leaving them behind. This is the case the confirmation
+    // warns about by name and count.
     it('takes both branches and everything under them', () => {
       const { removeIds } = getRemoval(laidOut(), BUSINESS_HOURS)
 
@@ -62,6 +81,8 @@ describe('getRemoval', () => {
       )
     })
 
+    // Two branches, so there is no one subtree to pull up into the gap: promoting either would be
+    // an arbitrary choice about which half of a flow survives. Nothing moves instead.
     it('moves nothing: there is no single branch to promote', () => {
       const { reparent, shift } = getRemoval(laidOut(), BUSINESS_HOURS)
 

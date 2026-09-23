@@ -5,6 +5,10 @@ import BaseSpinner from '../BaseSpinner/BaseSpinner.vue'
 
 const mountButton = (props = {}) => mount(BaseButton, { props, slots: { default: 'Save' } })
 
+/*
+ * The button every other component builds on: variants, sizes, the busy state, and the fact that a
+ * loading button is disabled and says so to a screen reader rather than only looking busy.
+ */
 describe('BaseButton', () => {
   it('renders its label', () => {
     expect(mountButton().text()).toBe('Save')
