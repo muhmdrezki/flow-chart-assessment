@@ -4,6 +4,43 @@ Newest entries first.
 
 ---
 
+## 2026-09-23: Day 3: Feature 3b (create mutation)
+
+Branch: `feature/03b-create-mutation` · Spec: `docs/specs/03-create-node.md`
+
+**Done**
+- Opened PR #7 for 3a.
+- `flowApi.createNode`: the simulated server. It re-validates the values, assigns ids that aren't
+  taken, builds the node(s) and answers after 300 ms, so the pending state is real. Invalid values
+  throw `NodeValidationError`, carrying a message per field.
+- `useCreateNode`: the mutation. `create(values)` resolves with the new node's id, and the store is
+  updated only in `onSuccess`. It exposes `isPending`, `error`, `fieldErrors` and `reset`.
+- Checked in the browser by driving the store from the console: a message inserted between Away
+  Message and Add Comment #1, with the comment reattached and moved down.
+- Code review (high): 2 findings, both fixed (below).
+- Tests: 27 files, 479 tests, all passing.
+
+**Bugs the review caught**
+- The create mutation inherited TanStack's default `networkMode: 'online'`, because the brief's
+  config sets `always` for queries only. With no connection the mutation is *paused*, so the drawer
+  would sit on "Creating…" forever. Creating never leaves the browser, so the mutation now sets
+  `networkMode: 'always'`. There's a test that creates while offline.
+- Adding a **condition** could drop its new failure branch on top of an existing node, because only
+  the reattached nodes were moved. Reproduced in the browser (the failure pill landed on Add Comment
+  #1).
+
+**Decisions**
+- A create that **adds branches** re-runs the layout for the whole flow: a condition needs an extra
+  column, so neighbouring branches have to make room. Ordinary inserts still keep dragged positions.
+  Agreed with the user; spec §2.3 and decision 3c updated. A test asserts no two nodes overlap.
+- `positionBranches` was removed, since branch positions now come from the re-layout.
+
+**Next**
+- PR 3c: the UI kit (inputs, select, form field, drawer), using the `frontend-design` skill.
+- Then 3d: the form, the header button and centring on the new node.
+
+---
+
 ## 2026-09-23: Day 3: Spec 03 + Feature 3a (create-node foundation)
 
 Branch: `feature/03a-create-foundation` · Spec: `docs/specs/03-create-node.md` (confirmed)
