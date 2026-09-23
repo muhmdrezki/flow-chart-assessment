@@ -19,7 +19,7 @@ describe('BaseButton', () => {
   })
 
   it.each([
-    ['primary', 'bg-indigo-600'],
+    ['primary', 'bg-(--color-accent)'],
     ['secondary', 'border-slate-300'],
     ['danger', 'bg-red-600'],
     ['ghost', 'hover:bg-slate-100'],
@@ -28,7 +28,7 @@ describe('BaseButton', () => {
   })
 
   it('uses the primary variant by default', () => {
-    expect(mountButton().classes()).toContain('bg-indigo-600')
+    expect(mountButton().classes()).toContain('bg-(--color-accent)')
   })
 
   it.each([

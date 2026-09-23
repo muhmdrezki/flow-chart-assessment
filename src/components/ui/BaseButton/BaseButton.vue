@@ -1,6 +1,7 @@
 <script>
 const VARIANT_CLASSES = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:outline-indigo-600',
+  primary:
+    'bg-(--color-accent) text-white hover:bg-(--color-accent-hover) focus-visible:outline-(--color-accent)',
   secondary:
     'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-slate-400',
   danger: 'bg-red-600 text-white hover:bg-red-500 focus-visible:outline-red-600',
