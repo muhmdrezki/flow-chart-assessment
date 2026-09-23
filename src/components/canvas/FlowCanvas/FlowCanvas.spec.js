@@ -3,10 +3,12 @@ import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import payload from '../../../../public/payload.json'
+import AddStepButton from '@/components/canvas/AddStepButton/AddStepButton.vue'
+import FlowEdge from '@/components/canvas/FlowEdge/FlowEdge.vue'
 import ConnectorNode from '@/components/nodes/ConnectorNode/ConnectorNode.vue'
 import NodeCard from '@/components/nodes/NodeCard/NodeCard.vue'
 import { useFlowStore } from '@/stores/flow'
-import { NODE_REGISTRY } from '@/utils/nodeRegistry'
+import { NODE_REGISTRY, getNodeSize } from '@/utils/nodeRegistry'
 import FlowCanvas from './FlowCanvas.vue'
 
 // Vue Flow measures the DOM, which jsdom can't do. The stub records the props it's given and,
@@ -24,6 +26,7 @@ vi.mock('@vue-flow/core', async () => {
       nodesConnectable: { type: Boolean, default: undefined },
       nodesFocusable: { type: Boolean, default: undefined },
       paneClickDistance: { type: Number, default: 0 },
+      nodeDragThreshold: { type: Number, default: 1 },
       disableKeyboardA11y: { type: Boolean, default: false },
       deleteKeyCode: { type: [String, null], default: undefined },
     },
@@ -43,7 +46,19 @@ vi.mock('@vue-flow/core', async () => {
           }
           return h('div', { 'data-node-id': node.id }, slot?.(slotProps))
         })
-        return h('div', [...renderedNodes, slots.default?.()])
+        // The real Vue Flow also works out where each edge's two ends are; the slot gets them too.
+        const renderedEdges = (props.edges ?? []).map((edge) => {
+          const slot = slots['edge-' + edge.type]
+          const slotProps = {
+            ...edge,
+            sourceX: 0,
+            sourceY: 0,
+            targetX: 10,
+            targetY: 20,
+          }
+          return h('div', { 'data-edge-id': edge.id }, slot?.(slotProps))
+        })
+        return h('div', [...renderedNodes, ...renderedEdges, slots.default?.()])
       }
     },
   })
@@ -52,6 +67,16 @@ vi.mock('@vue-flow/core', async () => {
   return {
     VueFlow: stubs.VueFlow,
     Handle: stubs.Handle,
+    // What a custom edge draws with, stubbed the same way: the real ones need a live canvas.
+    BaseEdge: defineComponent({ name: 'BaseEdge', props: { path: String }, render: () => null }),
+    EdgeLabelRenderer: defineComponent({
+      name: 'EdgeLabelRenderer',
+      setup:
+        (_, { slots }) =>
+        () =>
+          h('div', slots.default?.()),
+    }),
+    getBezierPath: () => ['M0,0 L10,20', 5, 10],
     Position: { Top: 'top', Bottom: 'bottom' },
     // The canvas moves the viewport through this, so the spies stand in for the real flow instance.
     useVueFlow: () => ({ setCenter: stubs.setCenter, getViewport: () => ({ zoom: 1.5 }) }),
@@ -65,13 +90,34 @@ vi.mock('@vue-flow/background', async () => {
 })
 
 vi.mock('@vue-flow/controls', async () => {
-  const { defineComponent } = await import('vue')
+  const { defineComponent, h } = await import('vue')
+  // Like the real one: the zoom buttons, with whatever the canvas puts above them in the column.
   stubs.Controls = defineComponent({
     name: 'Controls',
     props: { showInteractive: { type: Boolean, default: true } },
-    render: () => null,
+    setup:
+      (_, { slots }) =>
+      () =>
+        h('div', { class: 'vue-flow__controls' }, slots.top?.()),
   })
-  return { Controls: stubs.Controls }
+  stubs.ControlButton = defineComponent({
+    name: 'ControlButton',
+    props: { title: String, disabled: Boolean },
+    setup:
+      (props, { slots }) =>
+      () =>
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'vue-flow__controls-button',
+            title: props.title,
+            disabled: props.disabled || undefined,
+          },
+          slots.default?.(),
+        ),
+  })
+  return { Controls: stubs.Controls, ControlButton: stubs.ControlButton }
 })
 
 describe('FlowCanvas', () => {
@@ -189,6 +235,100 @@ describe('FlowCanvas', () => {
     expect(edges.find((edge) => edge.id === 'e-161f52-b0653a').class).toBe('edge--businessHours')
   })
 
+  it('names the step each edge would add after, so its "+" can say so', () => {
+    const edges = vueFlow(mount(FlowCanvas)).props('edges')
+
+    expect(edges.find((edge) => edge.id === 'e-1-d09c08').data).toEqual({
+      canInsert: true,
+      sourceTitle: 'Trigger',
+    })
+  })
+
+  describe('the "+" under a step with nothing after it', () => {
+    const addButton = (wrapper, id) => rendered(wrapper, id).findComponent(AddStepButton)
+
+    it('is drawn under the ends of the flow, and nowhere else', () => {
+      const wrapper = mount(FlowCanvas)
+
+      // "Welcome Message" and "Add Comment #1" are where the payload's two branches stop.
+      expect(addButton(wrapper, 'b0653a').exists()).toBe(true)
+      expect(addButton(wrapper, 'e879e4').exists()).toBe(true)
+      expect(addButton(wrapper, '1').exists()).toBe(false)
+      expect(addButton(wrapper, 'd09c08').exists()).toBe(false)
+    })
+
+    it('names the step it would add after', () => {
+      expect(addButton(mount(FlowCanvas), 'e879e4').props('title')).toBe('Add Comment #1')
+    })
+
+    it('asks for a step to be added after it', async () => {
+      const wrapper = mount(FlowCanvas)
+
+      await addButton(wrapper, 'b0653a').vm.$emit('add')
+
+      expect(wrapper.emitted('insert-after')).toEqual([['b0653a']])
+    })
+
+    it('appears under a branch as soon as it has nothing after it', async () => {
+      const wrapper = mount(FlowCanvas)
+      expect(addButton(wrapper, '161f52').exists()).toBe(false)
+
+      store.removeNodes({ removeIds: ['b0653a'] })
+      await nextTick()
+
+      expect(addButton(wrapper, '161f52').exists()).toBe(true)
+    })
+  })
+
+  describe('undo and redo', () => {
+    /** The buttons carry an icon, so what they say is in the title and the icon's own label. */
+    const controlButton = (wrapper, label) =>
+      wrapper.findAll('button').find((button) => button.attributes('title')?.includes(label))
+
+    const mountWithHistory = (props = {}) =>
+      mount(FlowCanvas, {
+        props: { undoLabel: 'Undo: Delete Away Message', redoLabel: 'Nothing to redo', ...props },
+      })
+
+    it('sits in the canvas control column, beside the zoom buttons', () => {
+      const wrapper = mountWithHistory()
+
+      // Vue Flow's own control button, so the column reads as one set of controls.
+      expect(controlButton(wrapper, 'Undo: Delete Away Message').classes()).toContain(
+        'vue-flow__controls-button',
+      )
+    })
+
+    it('says what it would take back, for a pointer and a screen reader alike', () => {
+      const undo = controlButton(mountWithHistory(), 'Undo: Delete Away Message')
+
+      expect(undo.attributes('title')).toBe('Undo: Delete Away Message')
+    })
+
+    it('asks the view to take the change back', async () => {
+      const wrapper = mountWithHistory({ canUndo: true })
+
+      await controlButton(wrapper, 'Undo: Delete Away Message').trigger('click')
+
+      expect(wrapper.emitted('undo')).toHaveLength(1)
+    })
+
+    it('is turned off when there is nothing to take back', () => {
+      const wrapper = mountWithHistory({ canUndo: false, canRedo: true })
+
+      expect(controlButton(wrapper, 'Undo:').attributes('disabled')).toBeDefined()
+      expect(controlButton(wrapper, 'Nothing to redo').attributes('disabled')).toBeUndefined()
+    })
+  })
+
+  it('asks for a step to be added where a "+" was clicked', async () => {
+    const wrapper = mount(FlowCanvas)
+
+    await wrapper.findComponent(FlowEdge).vm.$emit('insert', 'd09c08')
+
+    expect(wrapper.emitted('insert-after')).toEqual([['d09c08']])
+  })
+
   it('turns off graph editing inside Vue Flow', () => {
     const props = vueFlow(mount(FlowCanvas)).props()
 
@@ -209,6 +349,12 @@ describe('FlowCanvas', () => {
     // Vue Flow allows no movement at all by default, so a pixel of drift swallows the click that
     // would have closed the drawer.
     expect(vueFlow(mount(FlowCanvas)).props('paneClickDistance')).toBeGreaterThan(0)
+  })
+
+  it('lets it wobble while clicking a step, instead of calling it a drag', () => {
+    // One pixel is Vue Flow's default, and the drag swallows the click that ended it — so clicking
+    // quickly from step to step opened nothing and the drawer stayed on the step before.
+    expect(vueFlow(mount(FlowCanvas)).props('nodeDragThreshold')).toBeGreaterThan(1)
   })
 
   it('leaves a position the drag did not change alone', () => {
@@ -293,15 +439,20 @@ describe('FlowCanvas', () => {
   describe('focusNode', () => {
     it('centres the viewport on the node, keeping the current zoom', async () => {
       const wrapper = mount(FlowCanvas)
-      const { position } = store.nodeById.get('b6a0c1')
+      const node = store.nodeById.get('b6a0c1')
+      const { width, height } = getNodeSize(node)
 
       await wrapper.vm.focusNode('b6a0c1')
 
-      // A card is 240 × 88, so its middle is half of each past its top-left corner.
-      expect(stubs.setCenter).toHaveBeenCalledWith(position.x + 120, position.y + 44, {
-        zoom: 1.5,
-        duration: 400,
-      })
+      // The card's middle: half its own size past its top-left corner.
+      expect(stubs.setCenter).toHaveBeenCalledWith(
+        node.position.x + width / 2,
+        node.position.y + height / 2,
+        {
+          zoom: 1.5,
+          duration: 400,
+        },
+      )
     })
 
     it('measures pills by their own size', async () => {

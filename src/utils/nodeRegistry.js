@@ -1,6 +1,6 @@
 import { NODE_KIND, getNodeKind } from './nodeKind'
 
-const CARD_SIZE = Object.freeze({ width: 240, height: 88 })
+const CARD_SIZE = Object.freeze({ width: 240, height: 124 })
 const PILL_SIZE = Object.freeze({ width: 96, height: 28 })
 
 /**

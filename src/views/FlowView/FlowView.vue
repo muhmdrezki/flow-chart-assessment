@@ -3,7 +3,6 @@ import { computed, ref, useTemplateRef } from 'vue'
 import { useIsMutating } from '@tanstack/vue-query'
 import BaseButton from '@/components/ui/BaseButton/BaseButton.vue'
 import BaseIcon from '@/components/ui/BaseIcon/BaseIcon.vue'
-import BaseIconButton from '@/components/ui/BaseIconButton/BaseIconButton.vue'
 import BaseSpinner from '@/components/ui/BaseSpinner/BaseSpinner.vue'
 import BaseToast from '@/components/ui/BaseToast/BaseToast.vue'
 import EmptyState from '@/components/ui/EmptyState/EmptyState.vue'
@@ -21,6 +20,8 @@ const { selectedNode, select, close } = useSelectedNode()
 
 const canvas = useTemplateRef('canvas')
 const isCreateOpen = ref(false)
+/** The step a "+" on the canvas was clicked under, so the form opens on the right place. */
+const createAfterId = ref(null)
 
 /*
  * Nothing may be taken back while a write is in flight: a response landing after an undo would
@@ -46,8 +47,9 @@ useHistoryShortcuts({
  * live while it's open; the create form is modal, and two panels stacked on each other would leave
  * the one underneath visible but frozen.
  */
-function openCreate() {
+function openCreate(afterId = null) {
   close()
+  createAfterId.value = afterId
   isCreateOpen.value = true
 }
 
@@ -71,27 +73,10 @@ function onCreated(nodeId) {
     >
       <h1 class="text-base font-semibold">Flow Builder</h1>
 
-      <div v-if="store.isHydrated" class="flex items-center gap-2">
-        <BaseIconButton
-          icon="undo"
-          size="sm"
-          :label="store.canUndo ? `Undo: ${store.undoLabel}` : 'Nothing to undo'"
-          :disabled="!canUndo"
-          @click="store.undo"
-        />
-        <BaseIconButton
-          icon="redo"
-          size="sm"
-          :label="store.canRedo ? `Redo: ${store.redoLabel}` : 'Nothing to redo'"
-          :disabled="!canRedo"
-          @click="store.redo"
-        />
-
-        <BaseButton size="sm" @click="openCreate">
-          <BaseIcon name="plus" :size="16" />
-          Create New Node
-        </BaseButton>
-      </div>
+      <BaseButton v-if="store.isHydrated" size="sm" @click="openCreate()">
+        <BaseIcon name="plus" :size="16" />
+        Create New Node
+      </BaseButton>
     </header>
 
     <main class="relative min-h-0 flex-1">
@@ -112,8 +97,15 @@ function onCreated(nodeId) {
         v-else-if="store.isHydrated"
         ref="canvas"
         :selected-id="selectedNode?.id ?? null"
+        :can-undo="canUndo"
+        :can-redo="canRedo"
+        :undo-label="store.canUndo ? `Undo: ${store.undoLabel}` : 'Nothing to undo'"
+        :redo-label="store.canRedo ? `Redo: ${store.redoLabel}` : 'Nothing to redo'"
         @select="select"
         @deselect="close"
+        @insert-after="openCreate"
+        @undo="store.undo"
+        @redo="store.redo"
       />
 
       <!-- The query succeeded but the store couldn't take the data: never show a blank canvas. -->
@@ -125,7 +117,12 @@ function onCreated(nodeId) {
         />
       </div>
 
-      <CreateNodeDrawer :open="isCreateOpen" @close="isCreateOpen = false" @created="onCreated" />
+      <CreateNodeDrawer
+        :open="isCreateOpen"
+        :after-id="createAfterId"
+        @close="isCreateOpen = false"
+        @created="onCreated"
+      />
 
       <!-- Driven by the route: /node/:id renders this same view with one node selected. -->
       <NodeDetailsDrawer

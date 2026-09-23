@@ -32,6 +32,9 @@ const mountCard = (props = {}) =>
 const NON_BREAKING_SPACE = String.fromCharCode(160)
 const plainText = (element) => element.text().split(NON_BREAKING_SPACE).join(' ')
 
+/** The card's text under the title: what the user wrote, then what the step holds. */
+const textLines = (wrapper) => wrapper.findAll('p').slice(1)
+
 const handles = (wrapper) => wrapper.findAllComponents(stubs.Handle).map((handle) => handle.props())
 
 describe('NodeCard', () => {
@@ -39,16 +42,16 @@ describe('NodeCard', () => {
     expect(mountCard().text()).toContain('Welcome Message')
   })
 
-  describe('the second line', () => {
+  describe('what the card says under the title', () => {
     it('labels the message and sets the message itself apart, as the mockup does', () => {
-      const line = mountCard().find('p.line-clamp-2')
+      const [summary] = textLines(mountCard())
 
-      expect(plainText(line)).toBe('Message: Hello there welcome to the chat!')
-      expect(line.find('.italic').text()).toBe('Hello there welcome to the chat!')
+      expect(plainText(summary)).toBe('Message: Hello there welcome to the chat!')
+      expect(summary.find('.italic').text()).toBe('Hello there welcome to the chat!')
     })
 
-    it('shows the whole thing on hover, since the card only has room for a line of it', () => {
-      expect(mountCard().find('p.line-clamp-2').attributes('title')).toBe(
+    it('shows the whole thing on hover, in case it is longer than the card', () => {
+      expect(textLines(mountCard())[0].attributes('title')).toBe(
         'Message: Hello there welcome to the chat!',
       )
     })
@@ -59,7 +62,7 @@ describe('NodeCard', () => {
         data: { title: 'Trigger', description: '', summary: { label: '', text: 'Opened' } },
       })
 
-      expect(wrapper.find('p.line-clamp-2').text()).toBe('Opened')
+      expect(textLines(wrapper)[0].text()).toBe('Opened')
       // Italic is for a message being quoted, not for a line describing the step.
       expect(wrapper.find('.italic').exists()).toBe(false)
     })
@@ -73,14 +76,33 @@ describe('NodeCard', () => {
         },
       })
 
-      const lines = wrapper.findAll('p.line-clamp-1')
-      expect(lines.map(plainText)).toEqual(['Greets a first-time visitor', 'Message: Hello there'])
+      expect(textLines(wrapper).map(plainText)).toEqual([
+        'Greets a first-time visitor',
+        'Message: Hello there',
+      ])
+    })
+
+    it('cuts the description to a line and gives the message three', () => {
+      // The brief truncates a node’s description, so it gets the one line. The message is the
+      // reason the card is worth reading, so it gets the rest; both end in an ellipsis when there
+      // is more than they can show.
+      const wrapper = mountCard({
+        data: {
+          title: 'Welcome Message',
+          description: 'Greets a first-time visitor',
+          summary: { label: 'Message', text: 'Hello there' },
+        },
+      })
+      const [description, summary] = textLines(wrapper)
+
+      expect(description.classes()).toContain('line-clamp-1')
+      expect(summary.classes()).toContain('line-clamp-3')
     })
   })
 
-  it('omits the description when there is none', () => {
+  it('omits both lines when there is nothing to say', () => {
     const wrapper = mountCard({ data: { title: 'Trigger', description: '' } })
-    expect(wrapper.find('p.line-clamp-2').exists()).toBe(false)
+    expect(textLines(wrapper)).toHaveLength(0)
   })
 
   it.each([

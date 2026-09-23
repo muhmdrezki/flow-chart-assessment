@@ -37,7 +37,7 @@ function onKeydown(event) {
 
 <template>
   <div
-    class="flex h-[88px] w-[240px] flex-col gap-1.5 rounded-xl border bg-white px-3 py-2.5 shadow-sm transition-shadow duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent)"
+    class="flex h-[124px] w-[240px] flex-col gap-1.5 rounded-xl border bg-white px-3 py-2.5 shadow-sm transition-shadow duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent)"
     :class="[
       selected ? 'border-(--accent) ring-2 ring-(--accent)/20' : 'border-slate-200',
       config.hasDetails ? 'cursor-pointer hover:shadow-md' : 'cursor-default',
@@ -61,10 +61,7 @@ function onKeydown(event) {
       <p class="truncate text-sm font-semibold text-slate-800">{{ data.title }}</p>
     </div>
 
-    <!--
-      What the step is for, then what it holds. With both, each gets a line; with only one, it gets
-      the two the card has room for.
-    -->
+    <!-- What the step is for, then what it holds. -->
     <p
       v-if="data.description"
       class="line-clamp-1 text-xs leading-snug text-slate-500"
@@ -73,10 +70,13 @@ function onKeydown(event) {
       {{ data.description }}
     </p>
 
+    <!--
+      The description is cut to one line, as the brief has it. What the step holds gets three, and
+      both say so with an ellipsis when there is more than they can show.
+    -->
     <p
       v-if="data.summary?.text"
-      class="text-xs leading-snug text-slate-500"
-      :class="data.description ? 'line-clamp-1' : 'line-clamp-2'"
+      class="line-clamp-3 text-xs leading-snug text-slate-500"
       :title="summaryTitle"
     >
       <!-- The space is written out: Vue drops whitespace between two elements on separate lines. -->

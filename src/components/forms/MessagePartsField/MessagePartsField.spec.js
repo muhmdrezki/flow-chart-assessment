@@ -7,6 +7,9 @@ const PARTS = [
   { key: 'b', type: 'attachment', attachment: 'https://files.test/menu.png' },
 ]
 
+/** A file the user uploaded: its value is the file itself, so there is no address to show. */
+const UPLOADED_PDF = 'data:application/pdf;base64,JVBERi0='
+
 const mountField = (props = {}) =>
   mount(MessagePartsField, { props: { modelValue: PARTS, ...props } })
 
@@ -37,6 +40,70 @@ describe('MessagePartsField', () => {
 
     expect(lastParts(wrapper)[0]).toEqual({ key: 'a', type: 'text', text: 'Hi again' })
     expect(lastParts(wrapper)[1]).toEqual(PARTS[1])
+  })
+
+  describe('a link being typed', () => {
+    /** The parent this field reports to: what it emits comes back as what it shows. */
+    const applyEdits = (wrapper) => wrapper.setProps({ modelValue: lastParts(wrapper) })
+
+    async function addLink(wrapper) {
+      await buttonWith(wrapper, 'Add link').trigger('click')
+      await applyEdits(wrapper)
+      return wrapper.find('input[type="url"]')
+    }
+
+    it('keeps the field of a link that was already there while it is edited', async () => {
+      // A link the node arrived with is not "new", but editing `…/a.pdf` into `…/a.png` makes it a
+      // picture mid-word — and a tile appearing under the cursor takes the rest of the address.
+      const wrapper = mountField({
+        modelValue: [{ key: 'a', type: 'attachment', attachment: 'https://files.test/terms.pdf' }],
+      })
+      const field = wrapper.find('input[type="url"]')
+      await field.trigger('focus')
+
+      await field.setValue('https://files.test/terms.png')
+      await wrapper.setProps({ modelValue: lastParts(wrapper) })
+
+      expect(wrapper.find('input[type="url"]').element.value).toBe('https://files.test/terms.png')
+      expect(wrapper.find('img').exists()).toBe(false)
+
+      // And becomes the picture it now points at once the cursor leaves.
+      await wrapper.find('input[type="url"]').trigger('blur')
+
+      expect(wrapper.find('img').exists()).toBe(true)
+    })
+
+    it('keeps its field, however little has been typed so far', async () => {
+      const wrapper = mountField({ modelValue: [] })
+      const field = await addLink(wrapper)
+
+      // The first character is enough to give the part a value; the field has to survive it.
+      await field.setValue('h')
+      await applyEdits(wrapper)
+
+      expect(wrapper.find('input[type="url"]').element.value).toBe('h')
+    })
+
+    it('becomes a tile once the field is left', async () => {
+      const wrapper = mountField({ modelValue: [] })
+      const field = await addLink(wrapper)
+
+      await field.setValue('https://files.test/other.png')
+      await applyEdits(wrapper)
+      await field.trigger('blur')
+
+      expect(wrapper.find('input[type="url"]').exists()).toBe(false)
+      expect(wrapper.text()).toContain('other.png')
+    })
+
+    it('keeps its field when it is left empty, since there is nothing to show', async () => {
+      const wrapper = mountField({ modelValue: [] })
+      const field = await addLink(wrapper)
+
+      await field.trigger('blur')
+
+      expect(wrapper.find('input[type="url"]').exists()).toBe(true)
+    })
   })
 
   it('reports a link as it is typed', async () => {
@@ -77,13 +144,24 @@ describe('MessagePartsField', () => {
       expect(wrapper.find('img').attributes('src')).toBe('https://files.test/menu.png')
     })
 
-    it('is shown as a named box when it is not a picture', () => {
+    it('is shown as a named box when an uploaded file is not a picture', () => {
+      const wrapper = mountField({
+        modelValue: [{ key: 'a', type: 'attachment', attachment: UPLOADED_PDF }],
+      })
+
+      expect(wrapper.find('img').exists()).toBe(false)
+      expect(wrapper.text()).toContain('Uploaded PDF')
+    })
+
+    it('leaves a link that is not a picture as a link', () => {
+      // A box with a paperclip in it says less about a link than its address does, and a link is
+      // the one kind of attachment that can still be read and corrected where it stands.
       const wrapper = mountField({
         modelValue: [{ key: 'a', type: 'attachment', attachment: 'https://files.test/terms.pdf' }],
       })
 
+      expect(wrapper.find('input[type="url"]').element.value).toBe('https://files.test/terms.pdf')
       expect(wrapper.find('img').exists()).toBe(false)
-      expect(wrapper.text()).toContain('terms.pdf')
     })
 
     it('goes back to a text field when the address was refused, so it can be corrected', () => {
@@ -133,11 +211,11 @@ describe('MessagePartsField', () => {
 
     it('is not offered for a file that is not a picture', () => {
       const wrapper = mountField({
-        modelValue: [{ key: 'a', type: 'attachment', attachment: 'https://files.test/terms.pdf' }],
+        modelValue: [{ key: 'a', type: 'attachment', attachment: UPLOADED_PDF }],
       })
 
       expect(wrapper.find('[aria-label^="Preview"]').exists()).toBe(false)
-      expect(wrapper.text()).toContain('terms.pdf')
+      expect(wrapper.text()).toContain('Uploaded PDF')
     })
   })
 

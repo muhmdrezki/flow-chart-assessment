@@ -15,6 +15,12 @@ const props = defineProps({
   id: { type: String, default: 'create-node-form' },
   /** Where the node can be added: `{ value, label }` per allowed step. */
   parents: { type: Array, required: true },
+  /**
+   * Where to start, when the form already knows: the "+" on the canvas is clicked at a place, so
+   * the field opens on it. Still a field, not a fixed value — the place can be thought better of
+   * without closing the form and starting again somewhere else.
+   */
+  initialParentId: { type: String, default: null },
   /** True while the create is in flight: the form is locked and the button says so. */
   pending: { type: Boolean, default: false },
   /** Messages the API sent back, shown under their fields. */
@@ -24,7 +30,8 @@ const props = defineProps({
 const emit = defineEmits(['submit'])
 
 const form = useTemplateRef('form')
-const values = ref({ title: '', description: '', type: '', parentId: '' })
+// The form is remounted every time the drawer opens, so this is read fresh each time.
+const values = ref({ title: '', description: '', type: '', parentId: props.initialParentId ?? '' })
 const touched = ref(new Set())
 const submitted = ref(false)
 /** What was sent last time, so a server message can be dropped as soon as its field changes. */
@@ -59,7 +66,17 @@ const descriptionCount = computed(
   () => `${values.value.description.trim().length} / ${DESCRIPTION_MAX_LENGTH}`,
 )
 
-function markTouched(field) {
+/**
+ * A field has been left once the user has moved on to another one in the form. Leaving the form
+ * itself is not moving on — pressing Cancel, closing the panel, or clicking away — and marking it
+ * then would put a message on a field the user is walking away from, on a form about to disappear.
+ *
+ * @param {string} field
+ * @param {FocusEvent} event  `relatedTarget` is where focus went, or null when it went nowhere.
+ */
+function markTouched(field, event) {
+  if (!form.value?.contains(event.relatedTarget)) return
+
   touched.value = new Set(touched.value).add(field)
 }
 
@@ -86,7 +103,7 @@ async function onSubmit() {
           v-model="values.title"
           placeholder="Welcome back message"
           :disabled="pending"
-          @blur="markTouched('title')"
+          @blur="markTouched('title', $event)"
         />
       </template>
     </FormField>
@@ -103,7 +120,7 @@ async function onSubmit() {
           v-model="values.description"
           placeholder="What this step does"
           :disabled="pending"
-          @blur="markTouched('description')"
+          @blur="markTouched('description', $event)"
         />
       </template>
     </FormField>
@@ -116,7 +133,7 @@ async function onSubmit() {
           :options="typeOptions"
           placeholder="Choose a node type"
           :disabled="pending"
-          @blur="markTouched('type')"
+          @blur="markTouched('type', $event)"
         />
       </template>
     </FormField>
@@ -134,7 +151,7 @@ async function onSubmit() {
           :options="parents"
           placeholder="Choose a step"
           :disabled="pending"
-          @blur="markTouched('parentId')"
+          @blur="markTouched('parentId', $event)"
         />
       </template>
     </FormField>

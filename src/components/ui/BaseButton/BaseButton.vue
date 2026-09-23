@@ -11,10 +11,6 @@ const VARIANT_CLASSES = {
 const SIZE_CLASSES = {
   sm: 'h-8 px-3 text-sm',
   md: 'h-10 px-4 text-sm',
-  // Square, for a button that holds an icon and nothing else. A caller can't just pass narrower
-  // padding: it would land on the same element as these, and the later rule in the stylesheet wins.
-  'icon-sm': 'size-8',
-  icon: 'size-10',
 }
 </script>
 
@@ -49,7 +45,7 @@ function onClick(event) {
 <template>
   <button
     :type="type"
-    class="inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    class="inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
     :class="[VARIANT_CLASSES[variant], SIZE_CLASSES[size]]"
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"

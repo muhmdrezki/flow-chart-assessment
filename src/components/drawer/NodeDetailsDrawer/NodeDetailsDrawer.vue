@@ -189,12 +189,12 @@ function requestClose() {
     />
 
     <template #footer>
-      <p v-if="formError" role="alert" class="mr-auto self-center text-xs text-red-600">
+      <p v-if="formError" role="alert" class="mr-auto min-w-0 self-center text-xs text-red-600">
         {{ formError }}
       </p>
 
       <template v-if="isConfirmingDiscard">
-        <p class="mr-auto self-center text-xs text-slate-600">Discard your changes?</p>
+        <p class="mr-auto min-w-0 self-center text-xs text-slate-600">Discard your changes?</p>
         <BaseButton variant="secondary" size="sm" @click="isConfirmingDiscard = false">
           Keep editing
         </BaseButton>
@@ -202,7 +202,8 @@ function requestClose() {
       </template>
 
       <template v-else-if="isConfirmingDelete">
-        <p class="mr-auto self-center text-xs text-slate-600">{{ deleteWarning }}</p>
+        <!-- min-w-0, so a long warning wraps instead of squeezing the buttons beside it. -->
+        <p class="mr-auto min-w-0 self-center text-xs text-slate-600">{{ deleteWarning }}</p>
         <BaseButton variant="secondary" size="sm" :disabled="isDeleting" @click="keepStep">
           Keep it
         </BaseButton>

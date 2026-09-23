@@ -8,8 +8,8 @@ Brief: _"Nice to have: undo/redo functionality for node movements and edits."_
 ## 1. Goal
 
 Every change to the flow can be taken back, and put back again: creating a step, editing one,
-deleting one, and dragging one. Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z, plus two buttons in the header that
-say what they will undo.
+deleting one, and dragging one. Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z, plus two buttons on the canvas
+that say what they will undo.
 
 **Out of scope:**
 
@@ -141,8 +141,8 @@ disagrees with the URL somebody has a bad afternoon.
 ```
 src/stores/flow.js                              + past, future, snapshot, undo, redo, canUndo…
 src/composables/useHistoryShortcuts.js  (new)   the key handling, and the guard for text fields
-src/components/ui/BaseIconButton/…      (new)   an icon-only button with an accessible name
-src/views/FlowView/FlowView.vue                 + the two header buttons
+src/components/canvas/FlowCanvas/…              + the two buttons, in the control column (§3.4)
+src/views/FlowView/FlowView.vue                 + when they work and what they say
 src/utils/nodeDescription.js                    (reuse) getNodeTitle, for the labels
 ```
 
@@ -214,16 +214,32 @@ reactive, and `structuredClone` refuses a Proxy.
 
 ### 3.4 The UI
 
-Two icon buttons in the header, left of **Create New Node**:
+**Moved 2026-09-23, reversing decision 6i.** They began as two icon buttons in the header, left of
+**Create New Node**. They now sit at the top of the canvas's own control column, above the zoom
+buttons:
 
 ```
-[↶] [↷]            Create New Node
+ ┌───┐
+ │ ↶ │   undo
+ │ ↷ │   redo
+ │ + │
+ │ − │   the zoom buttons Vue Flow draws
+ │ ⛶ │
+ └───┘
 ```
 
+Taking a change back is something you do _to the canvas_, and the canvas already has a place where
+things you do to it live. In the header they sat beside **Create New Node**, which is a different
+kind of action — it opens a form — and a long way from the flow they act on.
+
+- Built from Vue Flow's own `ControlButton`, so the column reads as one set of controls rather than
+  two styles stacked on each other. `BaseIconButton`, which existed only for the header pair, went
+  with them.
+- The canvas is told what the buttons say and whether they work; the **view** decides. That rule —
+  `store.canUndo && !isWriting` — is the same one the keyboard shortcuts use, and a rule stated
+  twice is a rule that drifts.
 - Disabled when the stack is empty, or while a mutation is in flight.
-- The accessible name and the tooltip carry the label: _"Undo delete Away Message"_.
-- `BaseIconButton` is the one new kit component: an icon-only button that requires a `label`, so an
-  icon can never ship without a name for screen readers.
+- The tooltip and the icon's accessible name carry the label: _"Undo: Delete Away Message"_.
 
 ### 3.5 Stacked PRs
 
@@ -231,6 +247,8 @@ Two icon buttons in the header, left of **Create New Node**:
 | --- | --------------------------- | ------------------------------------------------------- |
 | 06a | `feature/06a-history-store` | `past`/`future`, `snapshot`, `undo`, `redo`, the labels |
 | 06b | `feature/06b-history-ui`    | `BaseIconButton`, the two buttons, the shortcuts        |
+
+(`BaseIconButton` was removed when the buttons moved to the canvas — see §3.4.)
 
 ### 3.6 Tests
 
@@ -244,10 +262,11 @@ Two icon buttons in the header, left of **Create New Node**:
   snapshot holds, and a snapshot taken from reactive state isn't a Proxy.
 - **`useHistoryShortcuts`**: Cmd+Z and Ctrl+Z undo; Shift and Ctrl+Y redo; a key from an `input`,
   `textarea`, `select` or `contenteditable` is ignored; the listener is removed on unmount.
-- **`BaseIconButton`**: the label reaches the accessible name, the icon is hidden from readers,
-  disabled state.
-- **`FlowView`**: both buttons disabled on a fresh flow; enabled after a change; the title says what
-  will be undone; clicking undoes; both disabled while a save is pending.
+- **`FlowCanvas`** (since §3.4): the buttons sit in the control column; each says what it would
+  take back; pressing one asks the view to do it; each is off when there is nothing to take.
+- **`FlowView`**: what the canvas is told — disabled on a fresh flow, enabled after a change, the
+  label naming what will be undone, still naming it while a save is pending — and that the change
+  is taken back when the canvas asks.
 
 ---
 
@@ -299,4 +318,4 @@ Two icon buttons in the header, left of **Create New Node**:
 | 6f  | Undo vs the Back button | **Separate**: content vs selection                                                         | Make Back undo changes too               |
 | 6g  | The open drawer         | **Undo restores the flow, not the panel**; the existing guard handles a node that vanishes | Snapshot the route as well               |
 | 6h  | Limit                   | **50 entries**, cleared by `hydrate`                                                       | Unbounded; a smaller cap                 |
-| 6i  | Where the buttons live  | **The header**, left of Create New Node                                                    | On the canvas, beside the zoom controls  |
+| 6i  | Where the buttons live  | ~~The header~~ → **the canvas control column** (reversed 2026-09-23, see §3.4)             | The header, left of Create New Node      |

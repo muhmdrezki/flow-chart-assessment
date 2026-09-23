@@ -4,6 +4,168 @@ Newest entries first.
 
 ---
 
+## 2026-09-23: Undo and redo move to the canvas, and the missing specs
+
+Branch: `feature/10-time-picker` (same working branch)
+
+**Done**
+
+- **Undo and redo left the header** for the top of the canvas’s own control column, above the
+  zoom buttons, built from Vue Flow’s `ControlButton` so the column reads as one set of controls.
+  Taking a change back is something you do to the canvas, and the canvas already had a place for
+  that; in the header they sat beside Create New Node, which opens a form instead. This reverses
+  decision 6i, and Spec 06 §3.4 now says so rather than quietly disagreeing with the code.
+- The canvas is told what the buttons say and whether they work; the view decides. That rule —
+  `store.canUndo && !isWriting` — is the same one the shortcuts use, and stating it twice is how
+  two halves of one feature drift apart.
+- `BaseIconButton` existed only for the header pair and is gone with them. An unused component in
+  a kit is a thing a reader has to rule out.
+- **Spec 10** (the time picker) and **Spec 11** (adding a step at a point) written, and the log
+  backfilled for features 06–09. Both specs say plainly that they were written after the build;
+  the point of the record is that it is true, not that it flatters the order things happened in.
+
+**Next**
+
+- A code review over the whole working tree, then split it into branches by topic and open the
+  PRs in order. Nothing is committed yet.
+
+---
+
+## 2026-09-23: Two more from reading the brief again
+
+Branch: `feature/10-time-picker` (same working branch)
+
+**A message appearing on a form the user was leaving**
+
+Opening the create form and closing it again left "Title is required" on the field as the panel
+slid away. The field is focused on open, so pressing Cancel blurred it, which marked it touched.
+Keeping the auto-focus — it saves a click on a form whose first field is always filled — a field
+is now marked only when focus moves to **another field in the form**. Leaving the form is not
+moving on.
+
+**The card was cutting the wrong line**
+
+The brief says a node shows a truncated _description_, and neither it nor the mockup cuts the
+message. Ours did the opposite once a description existed: the description took the first line and
+squeezed the message into the second with an ellipsis. Now the description is the one cut to a
+single line and the message gets three, with the card grown from 88px to 124px to hold them. Both
+still end in an ellipsis when there is more than they can show — which, at three lines, a message
+rarely does.
+
+One height for every card, rather than each sizing to its own content: the layout spaces rows by
+the height it is told, so per-node heights would mean measuring each card after it renders and
+laying the flow out a second time. The cost is white space on a card with one line to say.
+
+The tests that had the old height written into them now read it from the registry, and the ones
+that checked positions against numbers taken from an earlier layout compare against the positions
+they actually find — they were testing the arithmetic of one particular card size, not the rule.
+
+---
+
+## 2026-09-23: A "+" between steps, and two bugs the user found
+
+Branch: `feature/10-time-picker` (same working branch as the picker below)
+
+**Done**
+
+- **The mockup’s "+" on a connector.** Every edge is now our own `FlowEdge` component, which draws
+  the curve and puts a "+" halfway along it. Clicking one opens the create form already set to that
+  place — still a field, so it can be thought better of without closing and starting again.
+- **And under the end of a branch**, hanging off a short dashed stub: there is nothing there yet,
+  and the "+" is the offer to put something there. Same button in both places, so it is one
+  component with two placements rather than two that have to be kept looking alike.
+- Where a "+" appears is the registry’s own rule, not a new one: a step can be added after anything
+  that `canHaveChildren`. That is already false for a condition, so the two lines under Business
+  Hours have no "+" — a Success or Failure branch has to stay attached to its condition.
+- Tests: 53 files, 1017 tests. Lint clean, build fine.
+
+**The two bugs**
+
+- **A link could only be typed once.** An attachment part showed as a tile as soon as it had any
+  value at all, so the first character turned the field into a tile and there was nowhere left to
+  type. A link keeps its field until the user leaves it, and becomes a tile on blur.
+- **Clicking quickly from step to step opened nothing.** `paneClickDistance` was raised for the
+  canvas earlier, but a node has its own `nodeDragThreshold`, which Vue Flow defaults to one pixel.
+  A click that drifts becomes a drag, and d3 swallows the click that ends a drag — so the drawer
+  stayed on the step before. Both now use the same 4px slop, which is the same bug as the pane one
+  and should have been fixed with it.
+
+---
+
+## 2026-09-23: Features 06–09, written up after the fact
+
+Branches: `feature/06a-history-store` → `06b-history-ui`, `fix/audit-gaps`,
+`feature/07-save-feedback`, `fix/pane-click-slop`, `feature/08-attachment-tiles`,
+`feature/09-card-summary` · Spec: `docs/specs/06-undo-redo.md` (06 only)
+
+These shipped in one long session and the log was not kept up. Recorded here from the branches
+and the commits, so the record has no hole in it — briefly, and marked for what it is.
+
+**Undo and redo (PRs #18, #19).** Snapshots rather than inverse commands, because creating a
+condition re-lays out the whole flow and reversing that is a snapshot whatever it is called. One
+store action, one entry; each entry labelled, so a button can say what it would take back.
+Cmd/Ctrl+Z, ignored inside a text field — the drawer is non-modal, so without that guard undoing
+a typo would have deleted a node.
+
+**The audit (PR #20).** A pass against the brief’s own checklist found four gaps. The trigger
+went back to display-only: Spec 04 had argued from the brief’s wording, which names only Success
+and Failure, but the checklist names the three editable kinds and that outranks an inference.
+Attachments became preview tiles, files could be uploaded, and a comment could be cleared.
+
+**Saying what happened (PR #21).** Saving leaves the drawer open, which suits editing but meant a
+save announced itself only by a button going grey. A toast in the bottom-left corner, clear of the
+zoom controls, names what happened; `role="status"`, so a screen reader hears it at the next pause.
+
+**A pixel of drift (PR #22).** Clicking the canvas to close the drawer sometimes did nothing: Vue
+Flow allows no movement at all between press and release before it calls the gesture a pan, and a
+pan swallows the click. Reported by the user, not by a test. The same bug on nodes was found later
+(see above) — the fix here should have covered both.
+
+**Attachments as tiles, and a lightbox (PR #23).** The brief asks for tile previews; ours were a
+row of URL fields. A picture shows itself and opens full size; a file shows a named box.
+
+**What a card holds (PR #24).** Writing a description replaced the message on the card, which is
+the one thing the card is for. Both now show, on their own lines.
+
+---
+
+## 2026-09-23: A real time picker for business hours
+
+Branch: `feature/10-time-picker`
+
+**Done**
+
+- The brief asks for a date-time picker on business hours, and the mockup draws a clock menu. The
+  fourteen `<input type="time">` fields became `@vuepic/vue-datepicker` in time-only mode: 24-hour,
+  five-minute steps, its menu teleported to the body so the drawer cannot clip it, themed by
+  pointing its own `--dp-*` variables at our tokens rather than overriding its rules.
+- `toClockParts` / `fromClockParts` in `utils/businessHours.js` are the whole of the translation
+  between the payload’s `HH:mm` and the picker’s `{ hours, minutes }`. Nothing behind the grid —
+  the draft, the validation, `data.times` — knows a picker is involved.
+- A clock icon in place of the picker’s default calendar, through its `input-icon` slot: these
+  fields hold no date.
+- Tests: 51 files, 971 tests. Lint clean, build fine.
+
+**What the browser caught, twice over**
+
+The picker’s menu opens on a click and nothing else, so a keyboard user could reach a time field
+and never open it — worse than the native input it replaced. And because the menu is teleported to
+the body, the drawer around it read Escape as coming from somewhere else: the menu stayed open, or
+the whole drawer closed under it. The grid now answers both keys on the way down — Enter and Space
+stand for the click the picker wants, Escape closes the menu and hands the field its focus back —
+and passes Escape on when no menu is open, so it is still the drawer’s.
+
+Along the way, three things that only reading the library’s own types settled: v14 exports
+`VueDatePicker` by name, groups `is24`/`minutesIncrement` under `timeConfig` and `clearable`/`state`
+under `inputAttrs` (passed flat, they are silently ignored), and renames its classes from `dp__x` to
+`dp--x`. A test asserting the invalid state is what surfaced the second one.
+
+**Next**
+
+- The user reviews it in the browser → commit, push, PR when asked.
+
+---
+
 ## 2026-09-23: Day 3: Feature 5 (edit and delete a node)
 
 Branches: `feature/05a-edit-data` → `05b-edit-ui` → `05c-delete` · Spec: `docs/specs/05-edit-node.md`

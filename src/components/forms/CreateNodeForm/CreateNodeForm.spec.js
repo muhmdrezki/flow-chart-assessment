@@ -57,6 +57,28 @@ describe('CreateNodeForm', () => {
     expect(parent.props('options')).toEqual(PARENTS)
   })
 
+  describe('the place to add to', () => {
+    const parentField = (wrapper) => wrapper.findAllComponents(BaseSelect)[1]
+
+    it('starts empty when the form was opened from nowhere in particular', () => {
+      expect(parentField(mountForm()).props('modelValue')).toBe('')
+    })
+
+    it('starts on the step it was opened from, which a "+" on the canvas knows', () => {
+      const wrapper = mountForm({ initialParentId: 'b6a0c1' })
+
+      expect(parentField(wrapper).props('modelValue')).toBe('b6a0c1')
+    })
+
+    it('can still be thought better of', async () => {
+      const wrapper = mountForm({ initialParentId: 'b6a0c1' })
+
+      await parentField(wrapper).setValue('1')
+
+      expect(parentField(wrapper).props('modelValue')).toBe('1')
+    })
+  })
+
   it('says nothing is wrong before the user has done anything', () => {
     expect(messages(mountForm())).toEqual(['0 / 200', 'The new step is added after this one.'])
   })
@@ -70,10 +92,16 @@ describe('CreateNodeForm', () => {
   })
 
   describe('validation', () => {
-    it('shows a field’s message once the user leaves it', async () => {
+    /** Leaving a field for another one in the form, which is what `relatedTarget` carries. */
+    const leaveFor = (wrapper, next) =>
+      wrapper
+        .findComponent(BaseInput)
+        .trigger('blur', { relatedTarget: wrapper.findComponent(next).element })
+
+    it('shows a field’s message once the user moves on to another', async () => {
       const wrapper = mountForm()
 
-      await wrapper.findComponent(BaseInput).trigger('blur')
+      await leaveFor(wrapper, BaseTextarea)
 
       expect(messages(wrapper)).toContain('Title is required')
     })
@@ -81,9 +109,33 @@ describe('CreateNodeForm', () => {
     it('leaves the other fields quiet', async () => {
       const wrapper = mountForm()
 
-      await wrapper.findComponent(BaseInput).trigger('blur')
+      await leaveFor(wrapper, BaseTextarea)
 
       expect(messages(wrapper)).not.toContain('Choose a node type')
+    })
+
+    it('reports a select the same way, though blur does not bubble out of one', async () => {
+      // The select's own blur is passed on by BaseSelect; without that, these two fields would
+      // only ever have reported on submit.
+      const wrapper = mountForm()
+      const [type] = wrapper.findAllComponents(BaseSelect)
+
+      await type
+        .find('select')
+        .trigger('blur', { relatedTarget: wrapper.findComponent(BaseInput).element })
+
+      expect(messages(wrapper)).toContain('Choose a node type')
+    })
+
+    it('says nothing when focus leaves the form altogether', async () => {
+      // Cancel, the close button and the page behind are all outside the form. A message there
+      // would appear on a field the user is walking away from, on a form about to close.
+      const wrapper = mountForm()
+
+      await wrapper.findComponent(BaseInput).trigger('blur', { relatedTarget: document.body })
+      await wrapper.findComponent(BaseInput).trigger('blur')
+
+      expect(messages(wrapper)).not.toContain('Title is required')
     })
 
     it('shows every message on submit and does not submit', async () => {

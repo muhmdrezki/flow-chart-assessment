@@ -138,9 +138,14 @@ describe('getNodeText', () => {
       })
     })
 
+    it('labels a comment the same way, since it is words someone wrote too', () => {
+      const node = { type: 'addComment', data: { comment: 'Noted' } }
+
+      expect(getNodeText(node).summary).toEqual({ label: 'Comment', text: 'Noted' })
+    })
+
     it.each([
       ['a trigger', { type: 'trigger', data: { type: 'conversationOpened' } }],
-      ['a comment', { type: 'addComment', data: { comment: 'Noted' } }],
       ['business hours', { type: 'dateTime', data: { action: 'businessHours' } }],
     ])('leaves %s unlabelled, since its text stands on its own', (_, node) => {
       expect(getNodeText(node).summary.label).toBe('')
@@ -180,9 +185,9 @@ describe('getNodeText', () => {
     })
   })
 
-  it('says so when a comment is empty or missing', () => {
-    expect(summaryOf({ type: 'addComment', data: { comment: ' ' } })).toBe('No comment')
-    expect(summaryOf({ type: 'addComment' })).toBe('No comment')
+  it('stands a dash in for a comment nobody has written', () => {
+    expect(summaryOf({ type: 'addComment', data: { comment: ' ' } })).toBe('-')
+    expect(summaryOf({ type: 'addComment' })).toBe('-')
   })
 
   it('shows the business-hours timezone', () => {

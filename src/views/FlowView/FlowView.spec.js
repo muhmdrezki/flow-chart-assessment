@@ -21,8 +21,14 @@ vi.mock('@/components/canvas/FlowCanvas/FlowCanvas.vue', async () => {
   return {
     default: defineComponent({
       name: 'FlowCanvas',
-      props: { selectedId: { type: String, default: null } },
-      emits: ['select', 'deselect'],
+      props: {
+        selectedId: { type: String, default: null },
+        canUndo: Boolean,
+        canRedo: Boolean,
+        undoLabel: String,
+        redoLabel: String,
+      },
+      emits: ['select', 'deselect', 'insert-after', 'undo', 'redo'],
       setup: (_, { expose }) => {
         expose({ focusNode: stubs.focusNode })
         return () => h('div', { id: 'canvas' })
@@ -37,7 +43,7 @@ vi.mock('@/components/forms/CreateNodeDrawer/CreateNodeDrawer.vue', async () => 
   return {
     default: defineComponent({
       name: 'CreateNodeDrawer',
-      props: { open: Boolean },
+      props: { open: Boolean, afterId: { type: String, default: null } },
       emits: ['close', 'created'],
       render: () => h('div', { id: 'create-drawer' }),
     }),
@@ -178,6 +184,33 @@ describe('FlowView', () => {
       await createButton(wrapper).trigger('click')
 
       expect(drawer(wrapper).props('open')).toBe(true)
+    })
+
+    it('opens it on no particular place when the header button is used', async () => {
+      const wrapper = mountView()
+
+      await createButton(wrapper).trigger('click')
+
+      expect(drawer(wrapper).props('afterId')).toBeNull()
+    })
+
+    it('opens it on the place a "+" on the canvas was clicked', async () => {
+      const wrapper = mountView()
+
+      await wrapper.findComponent({ name: 'FlowCanvas' }).vm.$emit('insert-after', 'b6a0c1')
+
+      expect(drawer(wrapper).props('open')).toBe(true)
+      expect(drawer(wrapper).props('afterId')).toBe('b6a0c1')
+    })
+
+    it('forgets that place when the form is opened from the header again', async () => {
+      const wrapper = mountView()
+      await wrapper.findComponent({ name: 'FlowCanvas' }).vm.$emit('insert-after', 'b6a0c1')
+      await drawer(wrapper).vm.$emit('close')
+
+      await createButton(wrapper).trigger('click')
+
+      expect(drawer(wrapper).props('afterId')).toBeNull()
     })
 
     it('closes the drawer when it asks to be closed', async () => {
@@ -355,20 +388,21 @@ describe('FlowView', () => {
   })
 
   describe('undo and redo', () => {
-    const button = (wrapper, name) =>
-      wrapper
-        .findAll('header button')
-        .find((candidate) => candidate.attributes('aria-label')?.startsWith(name))
+    // The buttons live in the canvas's control column; the view decides what they say and when
+    // they work, and hears about the press. The canvas's own tests cover the buttons themselves.
+    const canvas = (wrapper) => wrapper.findComponent({ name: 'FlowCanvas' })
 
     beforeEach(() => {
       useFlowStore().hydrate(payload)
     })
 
     it('offers both, with nothing to take back yet', () => {
-      const wrapper = mountView()
+      const props = canvas(mountView()).props()
 
-      expect(button(wrapper, 'Nothing to undo').attributes('disabled')).toBeDefined()
-      expect(button(wrapper, 'Nothing to redo').attributes('disabled')).toBeDefined()
+      expect(props.canUndo).toBe(false)
+      expect(props.canRedo).toBe(false)
+      expect(props.undoLabel).toBe('Nothing to undo')
+      expect(props.redoLabel).toBe('Nothing to redo')
     })
 
     it('says what it would take back, once something has been done', async () => {
@@ -376,28 +410,25 @@ describe('FlowView', () => {
       useFlowStore().removeNodes({ removeIds: ['e879e4'] })
       await wrapper.vm.$nextTick()
 
-      const undo = button(wrapper, 'Undo')
-      expect(undo.attributes('aria-label')).toBe('Undo: Delete Add Comment #1')
-      expect(undo.attributes('disabled')).toBeUndefined()
+      expect(canvas(wrapper).props('canUndo')).toBe(true)
+      expect(canvas(wrapper).props('undoLabel')).toBe('Undo: Delete Add Comment #1')
     })
 
-    it('takes the change back when it is clicked', async () => {
+    it('takes the change back when the canvas asks', async () => {
       const wrapper = mountView()
       useFlowStore().removeNodes({ removeIds: ['e879e4'] })
-      await wrapper.vm.$nextTick()
 
-      await button(wrapper, 'Undo').trigger('click')
+      await canvas(wrapper).vm.$emit('undo')
 
       expect(useFlowStore().nodes).toHaveLength(7)
     })
 
-    it('puts it back again from the redo button', async () => {
+    it('puts it back again when the canvas asks to redo', async () => {
       const wrapper = mountView()
       useFlowStore().removeNodes({ removeIds: ['e879e4'] })
-      await wrapper.vm.$nextTick()
-      await button(wrapper, 'Undo').trigger('click')
+      await canvas(wrapper).vm.$emit('undo')
 
-      await button(wrapper, 'Redo').trigger('click')
+      await canvas(wrapper).vm.$emit('redo')
 
       expect(useFlowStore().nodes).toHaveLength(6)
     })
@@ -424,16 +455,15 @@ describe('FlowView', () => {
       useFlowStore().removeNodes({ removeIds: ['e879e4'] })
       await wrapper.vm.$nextTick()
 
-      const undo = button(wrapper, 'Undo')
-      expect(undo.attributes('aria-label')).toBe('Undo: Delete Add Comment #1')
+      expect(canvas(wrapper).props('undoLabel')).toBe('Undo: Delete Add Comment #1')
     })
 
-    it('offers neither until there is a flow', () => {
+    it('offers neither until there is a flow, since there is no canvas to put them on', () => {
       setActivePinia(createPinia())
       useFlowLoader.mockReturnValue(loader)
       const wrapper = mountView()
 
-      expect(button(wrapper, 'Nothing to undo')).toBeUndefined()
+      expect(canvas(wrapper).exists()).toBe(false)
     })
   })
 })

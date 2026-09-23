@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toVueFlowEdges, toVueFlowNodes } from './vueFlowAdapter'
+import { getOpenEndIds, toVueFlowEdges, toVueFlowNodes } from './vueFlowAdapter'
 
 const trigger = {
   id: '1',
@@ -57,16 +57,95 @@ describe('toVueFlowNodes', () => {
   })
 })
 
+describe('getOpenEndIds', () => {
+  const nodes = [trigger, businessHours, success, failure, message, comment]
+  const edgesFrom = (...pairs) => pairs.map(([source, target]) => ({ id: 'e', source, target }))
+
+  it('marks a step with nothing after it', () => {
+    const ids = getOpenEndIds(nodes, edgesFrom(['1', 'bh']))
+
+    expect(ids.has('m')).toBe(true)
+    expect(ids.has('c')).toBe(true)
+  })
+
+  it('leaves out a step that already has something after it', () => {
+    expect(getOpenEndIds(nodes, edgesFrom(['1', 'bh'])).has('1')).toBe(false)
+  })
+
+  it('leaves out a condition, whose branches are made with it', () => {
+    // Business hours has no children in this flow, and still gets no "+": nothing may come between
+    // it and the Success and Failure branches it is created with.
+    expect(getOpenEndIds(nodes, []).has('bh')).toBe(false)
+  })
+
+  it('marks a branch that leads nowhere yet, which is where a new branch starts', () => {
+    const ids = getOpenEndIds(nodes, edgesFrom(['bh', 's'], ['bh', 'f'], ['s', 'm']))
+
+    expect(ids.has('f')).toBe(true)
+    expect(ids.has('s')).toBe(false)
+  })
+
+  it('marks nothing in an empty flow', () => {
+    expect(getOpenEndIds([], [])).toEqual(new Set())
+  })
+})
+
 describe('toVueFlowEdges', () => {
   const nodeById = new Map(
     [trigger, businessHours, success, failure, message, comment, unknown].map((n) => [n.id, n]),
   )
   const classFor = (source) => toVueFlowEdges([{ id: 'e', source, target: 'x' }], nodeById)[0].class
 
-  it('keeps the edge fields', () => {
-    expect(toVueFlowEdges([{ id: 'e-1-bh', source: '1', target: 'bh' }], nodeById)).toEqual([
-      { id: 'e-1-bh', source: '1', target: 'bh', class: 'edge--trigger' },
+  it('keeps the edge fields, and adds what our own edge component draws with', () => {
+    const displayById = new Map([['1', { title: 'Trigger' }]])
+
+    expect(
+      toVueFlowEdges([{ id: 'e-1-bh', source: '1', target: 'bh' }], nodeById, displayById),
+    ).toEqual([
+      {
+        id: 'e-1-bh',
+        source: '1',
+        target: 'bh',
+        type: 'flow',
+        class: 'edge--trigger',
+        data: { canInsert: true, sourceTitle: 'Trigger' },
+      },
     ])
+  })
+
+  describe('the "+" that adds a step', () => {
+    const canInsertAfter = (source) =>
+      toVueFlowEdges([{ id: 'e', source, target: 'x' }], nodeById)[0].data.canInsert
+
+    it.each([
+      ['a trigger', '1'],
+      ['a message', 'm'],
+      ['a comment', 'c'],
+      ['a success branch', 's'],
+      ['a failure branch', 'f'],
+    ])('is offered under %s', (_, source) => {
+      expect(canInsertAfter(source)).toBe(true)
+    })
+
+    it('is not offered under a condition, whose branches have to stay attached to it', () => {
+      expect(canInsertAfter('bh')).toBe(false)
+    })
+
+    it('is not offered on an edge whose source is gone', () => {
+      expect(canInsertAfter('missing')).toBe(false)
+    })
+
+    it('names the step it would add after, and copes when there is no name for it', () => {
+      const [named] = toVueFlowEdges(
+        [{ id: 'e', source: 'm', target: 'x' }],
+        nodeById,
+        new Map([['m', { title: 'Welcome Message' }]]),
+      )
+      const [unnamed] = toVueFlowEdges([{ id: 'e', source: 'm', target: 'x' }], nodeById)
+
+      expect(named.data.sourceTitle).toBe('Welcome Message')
+      expect(unnamed.data.sourceTitle).toBe('')
+    })
   })
 
   it.each([
