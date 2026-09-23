@@ -351,7 +351,42 @@ src/views/FlowView       header "Create New Node" button + the create drawer
 - **`insertNodes` is written as a numbered walkthrough,** since the order of its steps matters: every
   guard runs before anything changes, so a rejected insert leaves the store untouched.
 
-### 3.4 Stacked PRs
+### 3.4 Deviations and decisions while building PR 3c (the UI kit)
+
+**Visual direction (agreed with the repo owner):** keep it close to the brief's mockup and light.
+The drawer is white with hairline borders, one **blue accent** (`--color-accent`, #2563eb) for
+primary buttons and focus rings, and per-kind colours left to the nodes. The earlier proposals (an
+accent that followed the chosen node type, and a live node preview in the form) were dropped as too
+far from the brief.
+
+**The create drawer is modal.** It has a light scrim, `aria-modal`, a focus trap, and it makes the
+rest of the page `inert` while open. Clicking the scrim closes it. That suits a form, where the user
+either finishes or cancels.
+
+> **Open for Spec 04:** the *details* drawer probably wants the opposite, since the brief says it is
+> "toggled by clicking on the node": the canvas has to stay clickable, so clicking node B while node
+> A's drawer is open switches to B rather than just closing the drawer. That likely means a `modal`
+> prop on `BaseDrawer` (scrim, inert and click-outside only when modal). Decide it in Spec 04.
+
+**From the code review (8 findings, all addressed):**
+- **A leaked key listener (high).** The trap only removed its `keydown` handler when the panel
+  closed, not when it was destroyed while open, which a route change will do in Spec 04. The
+  detached handler would have swallowed every later Tab and Escape on the page. Fixed with
+  `onScopeDispose`.
+- **Focus could stay outside the panel** when the content had nothing focusable (a read-only drawer).
+  It now falls back to the first control in the panel, and finally to the panel itself.
+- **Hidden inputs and `tabindex="-1"` elements counted as focusable,** so Tab could escape the panel.
+  They're excluded now.
+- **The scrim swallowed clicks while fading out,** so a click right after closing was lost.
+- **`aria-modal` without inerting the background** promised more than the markup delivered.
+- **`required` never reached the control:** the asterisk is `aria-hidden`, so a screen-reader user had
+  no way to know a field was mandatory. `FormField` now passes `required` through.
+- **Escape was handled globally,** which would have torn down the whole drawer when a popup inside it
+  (Spec 05's time pickers) should have handled the key. It's gated to the panel now.
+- `offsetParent`, the usual visibility check, **always reports null in jsdom**, so reachability is
+  decided by attributes instead, which behaves the same in the browser and in tests.
+
+### 3.5 Stacked PRs
 
 | PR | Contents |
 |---|---|
@@ -360,7 +395,7 @@ src/views/FlowView       header "Create New Node" button + the create drawer
 | 3c | UI kit: BaseInput, BaseTextarea, BaseSelect, FormField, BaseDrawer, + tests |
 | 3d | CreateNodeForm, the header button + drawer, centring on the new node, + tests, docs |
 
-### 3.5 Tests (outline)
+### 3.6 Tests (outline)
 - **Validation:** every rule and message; trimming; the parent rules (Business Hours not allowed).
 - **Ids:** format, uniqueness against existing ids.
 - **Factory:** each type's exact shape; business hours makes 3 nodes wired together, with `connectors`.

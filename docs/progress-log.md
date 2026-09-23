@@ -4,6 +4,47 @@ Newest entries first.
 
 ---
 
+## 2026-09-23: Day 3: Feature 3c (form UI kit)
+
+Branch: `feature/03c-form-ui-kit` · Spec: `docs/specs/03-create-node.md` §3.4
+
+**Done**
+- Opened PR #8 for 3b (stacked on #7).
+- Installed the `frontend-design` skill (personal skills folder, so it's available in every project)
+  and wrote a design plan before any code. The owner steered it to "close to the brief, light and
+  modern", so the drawer follows the mockup: white, hairline borders, one blue accent
+  (`--color-accent`), node colours left to the canvas.
+- UI kit: `FormField` (label, required marker, hint/error, and the ids that tie them together),
+  `BaseInput`, `BaseTextarea`, `BaseSelect` (with a drawn arrow, since the native one can't be
+  styled), `BaseDrawer` (mockup-style right panel, 200 ms slide, reduce-motion respected).
+- `useFocusTrap`: focus moves in, Tab cycles, Esc asks to close, focus returns to the opener.
+- The primary button moved from indigo to the shared accent token.
+- Code review (high): 8 findings, all fixed.
+- Tests: 33 files, 532 tests, all passing.
+
+**Bugs found (mine and the review's)**
+- The trap didn't arm when a panel mounted already open (the watcher wasn't immediate), and focus
+  landed on the close button instead of the first field.
+- `offsetParent`, the usual visibility check, always reports null in jsdom, so nothing counted as
+  focusable in tests. Reachability is decided by attributes now.
+- The review caught a **leaked key listener**: the handler was only removed when the panel closed,
+  not when it was destroyed while open, which Spec 04's routed drawer will do. A detached trap would
+  have swallowed every later Tab and Escape on the page.
+- Also from the review: focus could stay outside a panel with read-only content; hidden and
+  `tabindex="-1"` elements counted as focusable; the scrim swallowed clicks while fading out;
+  `aria-modal` without inerting the background; `required` never reached the control; and Escape was
+  handled globally, which would break popups inside the drawer (Spec 05's pickers).
+
+**Open for Spec 04**
+- The create drawer is **modal** (scrim, inert background, click-outside closes), which suits a form.
+  The details drawer probably needs the opposite, since the brief has it "toggled by clicking on the
+  node": the canvas must stay clickable. That likely means a `modal` prop on `BaseDrawer`.
+
+**Next**
+- PR 3d: the create form itself, the header button, and centring the canvas on the new node.
+
+---
+
 ## 2026-09-23: Day 3: Feature 3b (create mutation)
 
 Branch: `feature/03b-create-mutation` · Spec: `docs/specs/03-create-node.md`

@@ -23,6 +23,10 @@
 
 @theme {
   --font-sans: 'Nunito Variable', ui-sans-serif, system-ui, sans-serif;
+
+  /* One accent for interactive chrome (primary buttons, focus rings). Node colours stay per kind. */
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
 }
 
 /*
