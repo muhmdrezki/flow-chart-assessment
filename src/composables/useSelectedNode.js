@@ -33,7 +33,8 @@ export function useSelectedNode() {
    * the data, and replaces rather than pushes, so Back doesn't land on the bad URL again.
    */
   watch(
-    [routeNodeId, () => store.isHydrated],
+    // `selectedNode` is watched too, so a node that is deleted while open takes its URL with it.
+    [routeNodeId, () => store.isHydrated, selectedNode],
     ([id, isHydrated]) => {
       if (id && isHydrated && !selectedNode.value) router.replace({ name: 'flow' })
     },

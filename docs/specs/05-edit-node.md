@@ -1,7 +1,7 @@
 # Spec 05: Edit and Delete a Node
 
-Status: **Confirmed 2026-09-23** (decisions 5a–5i). Delete is our addition: the brief does not ask for
-it, and the README says so.
+Status: **Built 2026-09-23** (decisions 5a–5i confirmed). Delete is our addition: the brief does not
+ask for it, and the README says so.
 Brief: the drawer _"displays the node's properties and attachments"_, every input has _"necessary
 validations"_, and data changes go through _"Query for data fetching and mutation updates"_. The
 mockup's Business Hours drawer is the target: a header with a line about what the step does, a
@@ -71,7 +71,7 @@ error states legible, matches the create form, and means a half-typed time never
 - A failure keeps the drawer open with the message under its field, like the create form.
 - Closing the drawer with unsaved changes **discards them**, and the drawer says so before it does:
   a small inline confirmation in the footer, not a second dialog on top of a dialog.
-- Switching to another node counts as closing.
+- Switching to another node starts again from it. That one **doesn't** ask first — see §3.4.
 
 ### 2.4 Validation (decision 5c)
 
@@ -90,8 +90,10 @@ Shared validators from `src/utils/validation.js`, extended rather than duplicate
 timezone, so they compare as strings once they are known to be `HH:mm` — `"09:00" < "17:00"`. No
 dates, no timezone maths, which is the whole point of storing them this way.
 
-Validation runs in `validateNode(node)` — one pure function, called by the drawer on save **and** by
-the fake API before it accepts the change, the same double-check `createNode` already does.
+Validation runs in `validateNodeDraft(draft, kind)` — one pure function, called by the drawer on
+save **and** by the simulated API before it accepts the change, the same double-check `createNode`
+already does. The API converts the node it is handed back into a draft to check it, so there is one
+set of rules rather than two that can drift apart.
 
 ### 2.5 The business-hours grid (decision 5d)
 
@@ -221,7 +223,22 @@ useDeleteNode(): { remove, isPending, error }
 | 05b | `feature/05b-edit-ui`   | the controls, the per-kind form, the drawer's draft and Save |
 | 05c | `feature/05c-delete`    | the Delete button, its confirmation, and the removal         |
 
-### 3.4 Tests
+### 3.4 Found while building
+
+- **A Proxy reached the simulated API.** `fromDraft` carries over the fields a form doesn't own — a
+  business-hours node's `connectors`, say — and the node it copies from is the store's, which is
+  reactive. `structuredClone` refuses a Proxy, so every save of a business-hours node failed with
+  "Could not save the step". No unit test saw it: they all pass plain objects. The drawer now builds
+  from `toRaw(node)`, and a test mounts it on a reactive node and checks what reaches the API.
+  This is the same class of bug as the one in Spec 01, where `hydrate` cloned Vue Query's proxy.
+- **Switching nodes discards unsaved changes without asking**, unlike closing, which asks. This
+  panel leaves the canvas clickable on purpose (Spec 04, decision 4b), and the only way to ask
+  first would be to block the clicks that make that true. Stated here rather than pretended away.
+- **The drawer closes itself after a delete** without being told to: the node the URL names is gone,
+  and `useSelectedNode` already replaces a URL that names a node it can't find. It just had to watch
+  the node as well as the route.
+
+### 3.5 Tests
 
 - **`validateNode`**: every kind's rules, an end before a start, an equal start and end, a malformed
   time, a blank text part, an unparseable attachment URL, and a valid node returning `{}`.
@@ -242,15 +259,15 @@ useDeleteNode(): { remove, isPending, error }
 
 ## 4. Acceptance criteria
 
-- [ ] Every editable kind can be changed in the drawer and saved, and the canvas updates.
-- [ ] Business Hours has the mockup's Day | Time grid and a `(GMT+00:00) UTC` time-zone select.
-- [ ] Every input is validated, including end-after-start, with the message under its field.
-- [ ] Saving goes through `useMutation`; Pinia changes only on success; pending and error show.
-- [ ] Closing with unsaved changes asks before discarding.
-- [ ] A step can be deleted: a plain step closes the chain, a condition takes its branches, and the
+- [x] Every editable kind can be changed in the drawer and saved, and the canvas updates.
+- [x] Business Hours has the mockup's Day | Time grid and a `(GMT+00:00) UTC` time-zone select.
+- [x] Every input is validated, including end-after-start, with the message under its field.
+- [x] Saving goes through `useMutation`; Pinia changes only on success; pending and error show.
+- [x] Closing with unsaved changes asks before discarding.
+- [x] A step can be deleted: a plain step closes the chain, a condition takes its branches, and the
       trigger has no Delete.
-- [ ] Deleting or saving never re-runs the layout, so dragged positions survive.
-- [ ] Lint clean, tests green, build succeeds.
+- [x] Deleting or saving never re-runs the layout, so dragged positions survive.
+- [x] Lint clean, tests green, build succeeds.
 
 ---
 

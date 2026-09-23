@@ -1,15 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { isReactive, reactive, ref } from 'vue'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import payload from '../../../../public/payload.json'
 import NodeEditForm from '@/components/forms/NodeEditForm/NodeEditForm.vue'
 import BaseButton from '@/components/ui/BaseButton/BaseButton.vue'
 import BaseDrawer from '@/components/ui/BaseDrawer/BaseDrawer.vue'
+import { useDeleteNode } from '@/composables/useDeleteNode'
 import { useUpdateNode } from '@/composables/useUpdateNode'
+import { useFlowStore } from '@/stores/flow'
 import { normalizePayload } from '@/utils/graph'
 import NodeDetailsDrawer from './NodeDetailsDrawer.vue'
 
 vi.mock('@/composables/useUpdateNode', () => ({ useUpdateNode: vi.fn() }))
+vi.mock('@/composables/useDeleteNode', () => ({ useDeleteNode: vi.fn() }))
 
 const nodes = normalizePayload(payload)
 const node = (id) => nodes.find((candidate) => candidate.id === String(id))
@@ -24,9 +28,12 @@ const BUSINESS_HOURS = 'd09c08'
 
 describe('NodeDetailsDrawer', () => {
   let mutation
+  let deletion
 
   beforeEach(() => {
     document.body.innerHTML = ''
+    setActivePinia(createPinia())
+    useFlowStore().hydrate(payload)
     mutation = {
       save: vi.fn((saved) => Promise.resolve(saved)),
       isPending: ref(false),
@@ -35,6 +42,14 @@ describe('NodeDetailsDrawer', () => {
       reset: vi.fn(),
     }
     useUpdateNode.mockReturnValue(mutation)
+
+    deletion = {
+      remove: vi.fn().mockResolvedValue({ removeIds: [AWAY_MESSAGE] }),
+      isPending: ref(false),
+      error: ref(null),
+      reset: vi.fn(),
+    }
+    useDeleteNode.mockReturnValue(deletion)
   })
 
   afterEach(() => {
@@ -238,5 +253,84 @@ describe('NodeDetailsDrawer', () => {
 
     // The panel is on its way out, so emptying it now would blank the content mid-animation.
     expect(wrapper.findComponent(BaseDrawer).props('title')).toBe('Away Message')
+  })
+
+  describe('deleting', () => {
+    it('offers Delete on a step that can go', () => {
+      expect(button(mountDrawer(), 'Delete')).toBeDefined()
+    })
+
+    it('does not offer it on the trigger, which a flow cannot be without', () => {
+      expect(button(mountDrawer({ node: node(1) }), 'Delete')).toBeUndefined()
+    })
+
+    it('asks before it does anything', async () => {
+      const wrapper = mountDrawer()
+
+      await button(wrapper, 'Delete').trigger('click')
+
+      expect(deletion.remove).not.toHaveBeenCalled()
+      expect(panel().textContent).toContain('Delete “Away Message”?')
+    })
+
+    it('says what else goes when the step is a condition', async () => {
+      const wrapper = mountDrawer({ node: node(BUSINESS_HOURS) })
+
+      await button(wrapper, 'Delete').trigger('click')
+
+      expect(panel().textContent).toContain(
+        'Delete “Business Hours”, both its branches and the 3 steps under them?',
+      )
+    })
+
+    it('deletes once it is confirmed', async () => {
+      const wrapper = mountDrawer()
+      await button(wrapper, 'Delete').trigger('click')
+
+      await button(wrapper, 'Delete').trigger('click')
+
+      expect(deletion.remove).toHaveBeenCalledWith(AWAY_MESSAGE)
+    })
+
+    it('backs out when the user keeps the step', async () => {
+      const wrapper = mountDrawer()
+      await button(wrapper, 'Delete').trigger('click')
+
+      await button(wrapper, 'Keep it').trigger('click')
+
+      expect(deletion.remove).not.toHaveBeenCalled()
+      expect(button(wrapper, 'Save changes')).toBeDefined()
+    })
+
+    it('says so when the delete fails', () => {
+      deletion.error.value = new Error('Nope')
+
+      mountDrawer()
+
+      expect(query('[role="alert"]').textContent).toContain('Could not delete the step')
+    })
+
+    it('cannot be dismissed while it is deleting', async () => {
+      deletion.isPending.value = true
+      const wrapper = mountDrawer()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.findComponent(BaseDrawer).props('dismissible')).toBe(false)
+    })
+  })
+
+  it('hands the API a node with no reactivity left in it', async () => {
+    // The store's nodes are reactive, and the fields a form doesn't own are carried over as they
+    // are. A Proxy reaching the API is refused by structuredClone, which no unit test would see
+    // because they all pass plain objects.
+    const wrapper = mountDrawer({ node: reactive(node(BUSINESS_HOURS)) })
+    await edit(wrapper, { title: 'Opening times' })
+
+    await button(wrapper, 'Save changes').trigger('click')
+
+    const [sent] = mutation.save.mock.calls[0]
+    expect(isReactive(sent)).toBe(false)
+    expect(isReactive(sent.data.connectors)).toBe(false)
+    expect(() => structuredClone(sent)).not.toThrow()
   })
 })

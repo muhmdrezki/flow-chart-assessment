@@ -177,4 +177,28 @@ describe('useSelectedNode', () => {
       expect(router.currentRoute.value.fullPath).toBe('/')
     })
   })
+
+  describe('a node that is deleted while it is open', () => {
+    it('takes its URL with it, so the drawer closes itself', async () => {
+      store.hydrate(payload)
+      const { selectedNode } = await selectionAt(`/node/${AWAY_MESSAGE}`)
+      expect(selectedNode.value.id).toBe(AWAY_MESSAGE)
+
+      store.removeNodes({ removeIds: [AWAY_MESSAGE] })
+      await flushPromises()
+
+      expect(selectedNode.value).toBeNull()
+      expect(router.currentRoute.value.fullPath).toBe('/')
+    })
+
+    it('leaves the drawer alone when a different node goes', async () => {
+      store.hydrate(payload)
+      const { selectedNode } = await selectionAt(`/node/${AWAY_MESSAGE}`)
+
+      store.removeNodes({ removeIds: [ADD_COMMENT] })
+      await flushPromises()
+
+      expect(selectedNode.value.id).toBe(AWAY_MESSAGE)
+    })
+  })
 })
