@@ -32,9 +32,9 @@ Node 22.12 or newer (`.nvmrc` pins 24).
 - **Open a step.** Clicking a node opens a drawer at `/node/:id`; clicking it again closes it.
   The URL is the selection, so a node can be linked, bookmarked and navigated back to.
 - **Edit it.** Each kind of step gets the fields it actually has — a message's texts and
-  attachments, a comment, a week of opening hours with a time zone. Attachments are previewed as
-  tiles and new ones can be uploaded; every part can be changed or removed. Nothing reaches the
-  store until Save.
+  attachments, a comment, a week of opening hours with a time zone. Attachments are tiles — click a
+  picture to see it full size — and new ones can be uploaded; every part can be changed or removed.
+  Nothing reaches the store until Save.
 - **Delete it.** A plain step closes the chain behind it; a condition takes its branches with it,
   after saying so.
 - **See that it worked.** Saving keeps the drawer open so the card can be watched changing behind

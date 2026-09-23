@@ -180,9 +180,21 @@ The first build showed an attachment as a URL text box, which loses twice: you c
 and you can only reference a file that is already somewhere on the web. The assessment asks for
 existing attachments shown as a preview tile, and for new ones to be uploadable.
 
-- **A tile per attachment**: the picture itself when it is one, otherwise a box with a paperclip and
-  the file's name. A link keeps its text box underneath so it stays editable; an uploaded file
-  doesn't, because its "address" is the file.
+- **A tile per attachment**: a square thumbnail — the picture itself when it is one, otherwise a box
+  with a paperclip — and beneath it the file's name and a remove button. Tiles sit side by side and
+  wrap; a text part takes a row of its own, so the parts stay in the order they are sent.
+
+  The first attempt laid an attachment out as a wide row with a small thumbnail on the left. It was
+  a box, but nobody would have called it a tile, and the checklist asks for a tile.
+
+  There is no room in a tile for the link's text box, so it appears only when there is nothing to
+  show yet — a link just added — or when the address was **refused**, so a typo can be corrected
+  rather than removed and re-added. A good link is a tile; change it by replacing it.
+
+- **Clicking a picture opens it full size** in a lightbox: a modal overlay, unlike the drawer it
+  opens from, because a picture at that size covers the page and there is nothing else to reach.
+  Escape or a click beside the picture closes it, focus moves in and comes back, and `BaseLightbox`
+  reuses the same focus trap as the drawer.
 - **Upload** reads the file into a `data:` URL and adds it as another part. The payload stores an
   attachment as a URL and nothing else, so the file has to _become_ one — with a real backend it
   would be POSTed and the returned URL stored instead, which is the one function that would change.

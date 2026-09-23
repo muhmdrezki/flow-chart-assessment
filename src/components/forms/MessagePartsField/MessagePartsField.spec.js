@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import MessagePartsField from './MessagePartsField.vue'
 
@@ -17,13 +17,17 @@ const buttonWith = (wrapper, text) =>
 describe('MessagePartsField', () => {
   it('shows a box per part, in the order they are sent', () => {
     const wrapper = mountField()
+    const [text, attachment] = wrapper.findAll('li')
 
-    expect(wrapper.find('textarea').element.value).toBe('Hello there')
-    expect(wrapper.find('input').element.value).toBe('https://files.test/menu.png')
+    expect(text.find('textarea').element.value).toBe('Hello there')
+    expect(attachment.text()).toContain('menu.png')
   })
 
-  it('asks for a link where a part is an attachment', () => {
-    expect(mountField().find('input').attributes('type')).toBe('url')
+  it('asks for a link while an attachment has none yet', () => {
+    const wrapper = mountField({ modelValue: [{ key: 'a', type: 'attachment', attachment: '' }] })
+
+    expect(wrapper.find('input[type="url"]').exists()).toBe(true)
+    expect(wrapper.find('img').exists()).toBe(false)
   })
 
   it('reports edited text', async () => {
@@ -35,12 +39,12 @@ describe('MessagePartsField', () => {
     expect(lastParts(wrapper)[1]).toEqual(PARTS[1])
   })
 
-  it('reports an edited link', async () => {
-    const wrapper = mountField()
+  it('reports a link as it is typed', async () => {
+    const wrapper = mountField({ modelValue: [{ key: 'a', type: 'attachment', attachment: '' }] })
 
-    await wrapper.find('input').setValue('https://files.test/other.png')
+    await wrapper.find('input[type="url"]').setValue('https://files.test/other.png')
 
-    expect(lastParts(wrapper)[1].attachment).toBe('https://files.test/other.png')
+    expect(lastParts(wrapper)[0].attachment).toBe('https://files.test/other.png')
   })
 
   it('adds an empty text part', async () => {
@@ -82,10 +86,11 @@ describe('MessagePartsField', () => {
       expect(wrapper.text()).toContain('terms.pdf')
     })
 
-    it('keeps a link editable', () => {
-      expect(mountField().find('input[type="url"]').element.value).toBe(
-        'https://files.test/menu.png',
-      )
+    it('goes back to a text field when the address was refused, so it can be corrected', () => {
+      const wrapper = mountField({ errors: { 'parts.1': 'An attachment must be a web link' } })
+
+      expect(wrapper.find('input[type="url"]').element.value).toBe('https://files.test/menu.png')
+      expect(wrapper.find('img').exists()).toBe(false)
     })
 
     it('shows an uploaded file without an address nobody can read', () => {
@@ -96,6 +101,43 @@ describe('MessagePartsField', () => {
       expect(wrapper.find('img').attributes('src')).toBe(UPLOADED)
       expect(wrapper.text()).toContain('Uploaded PNG')
       expect(wrapper.find('input[type="url"]').exists()).toBe(false)
+    })
+  })
+
+  describe('the preview', () => {
+    const lightbox = () => document.body.querySelector('[role="dialog"]')
+
+    afterEach(() => {
+      document.body.innerHTML = ''
+    })
+
+    it('opens the picture full size when its tile is clicked', async () => {
+      const wrapper = mountField({ attachTo: document.body })
+
+      await wrapper.find('[aria-label="Preview menu.png"]').trigger('click')
+
+      expect(lightbox().querySelector('img').getAttribute('src')).toBe(
+        'https://files.test/menu.png',
+      )
+      expect(lightbox().textContent).toContain('menu.png')
+    })
+
+    it('closes again', async () => {
+      const wrapper = mountField()
+      await wrapper.find('[aria-label="Preview menu.png"]').trigger('click')
+
+      await wrapper.findComponent({ name: 'BaseLightbox' }).vm.$emit('close')
+
+      expect(lightbox()).toBeNull()
+    })
+
+    it('is not offered for a file that is not a picture', () => {
+      const wrapper = mountField({
+        modelValue: [{ key: 'a', type: 'attachment', attachment: 'https://files.test/terms.pdf' }],
+      })
+
+      expect(wrapper.find('[aria-label^="Preview"]').exists()).toBe(false)
+      expect(wrapper.text()).toContain('terms.pdf')
     })
   })
 
@@ -171,9 +213,12 @@ describe('MessagePartsField', () => {
     const wrapper = mountField({ disabled: true })
 
     expect(wrapper.find('textarea').attributes('disabled')).toBeDefined()
-    expect(wrapper.find('input').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('input[type="file"]').attributes('disabled')).toBeDefined()
     expect(
-      wrapper.findAll('button').every((button) => button.attributes('disabled') !== undefined),
+      wrapper
+        .findAll('button')
+        .filter((button) => button.attributes('aria-label') !== 'Preview menu.png')
+        .every((button) => button.attributes('disabled') !== undefined),
     ).toBe(true)
   })
 })
