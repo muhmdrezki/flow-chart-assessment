@@ -3,8 +3,8 @@
 A node-based flow editor for chat automation: a canvas of steps you can read, rearrange, add to,
 edit and delete, built for the respond.io frontend assessment.
 
-**Live:** _(Vercel link)_ · **Stack:** Vue 3 · Pinia · Vue Router · Vue Flow · TanStack Query ·
-Tailwind v4 · Vitest
+**Live:** <https://flow-chart-assessment.vercel.app/> · **Stack:** Vue 3 · Pinia · Vue Router ·
+Vue Flow · TanStack Query · Tailwind v4 · Vitest
 
 ---
 
