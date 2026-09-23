@@ -106,6 +106,17 @@ describe('BusinessHoursGrid', () => {
       expect(options.map((option) => option.value)).toContain('Mars/Olympus')
     })
 
+    it('is built once, not rebuilt every time a zone is picked', async () => {
+      // 400-odd zones, each needing its own Intl formatter: rebuilding the list would re-render
+      // every option to change one.
+      const wrapper = mountGrid()
+      const before = wrapper.findComponent(BaseSelect).props('options')
+
+      await wrapper.setProps({ timezone: 'Asia/Kuala_Lumpur' })
+
+      expect(wrapper.findComponent(BaseSelect).props('options')).toBe(before)
+    })
+
     it('reports a new zone', async () => {
       const wrapper = mountGrid()
 

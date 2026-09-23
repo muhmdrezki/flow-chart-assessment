@@ -103,7 +103,18 @@ export async function updateNode(node, { nodes, delayMs = SIMULATED_LATENCY_MS }
     throw new Error('That step is no longer in the flow.')
   }
 
-  const fieldErrors = validateNodeDraft(toDraft(node), getNodeKind(node))
+  /*
+   * `toDraft` fills in what the canvas would show — a node the payload never named is drafted as
+   * its kind's label, and a missing timezone as UTC. That is right for a form, but it would make
+   * the two rules that ask for those fields unfailable here. So where the node actually carries
+   * them, the stored values are what gets checked.
+   */
+  const stored = {
+    ...(node.name !== undefined && { title: node.name }),
+    ...(node.data?.timezone !== undefined && { timezone: node.data.timezone }),
+  }
+
+  const fieldErrors = validateNodeDraft({ ...toDraft(node), ...stored }, getNodeKind(node))
   if (Object.keys(fieldErrors).length) {
     throw new NodeValidationError(fieldErrors)
   }
@@ -121,11 +132,18 @@ export async function updateNode(node, { nodes, delayMs = SIMULATED_LATENCY_MS }
  * @returns {Promise<import('@/utils/nodeRemoval').Removal>}
  */
 export async function deleteNode(id, { nodes, delayMs = SIMULATED_LATENCY_MS }) {
+  await wait(delayMs)
+
+  /*
+   * Worked out after the wait, not before it. The canvas stays usable while this is in flight, so
+   * a removal decided up front could be applied to a flow that has moved on — shifting a node the
+   * user dragged in the meantime, or leaving a step that was added under the doomed one pointing
+   * at a parent that no longer exists.
+   */
   const removal = getRemoval(nodes, id)
   if (!removal) {
     throw new Error("That step can't be deleted.")
   }
 
-  await wait(delayMs)
   return removal
 }

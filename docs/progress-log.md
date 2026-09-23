@@ -4,6 +4,61 @@ Newest entries first.
 
 ---
 
+## 2026-09-23: Day 3: Feature 5 (edit and delete a node)
+
+Branches: `feature/05a-edit-data` → `05b-edit-ui` → `05c-delete` · Spec: `docs/specs/05-edit-node.md`
+
+**Done**
+
+- Merged PR #11 (the details drawer). Then wrote and confirmed Spec 05, which merges what was going
+  to be two specs: editing and deleting share the drawer and the mutation pattern.
+- **05a, the data layer.** A node is edited as a _draft_ — one flat, form-shaped object — which
+  converts back into the payload's own shapes on save. Validation per kind, including a day that
+  must end after it starts. `updateNode` and `deleteNode` on the simulated API, both re-checking
+  what they are given; `replaceNode` and `removeNodes` on the store; a composable each.
+- **05b, the editing UI.** The mockup's Day | Time grid with a time-zone select reading
+  `(GMT+00:00) UTC` (420 zones, straight from the browser's own IANA list), a message-parts editor,
+  the comment, and the trigger's once-per-contact. Save appears only once something changed, and
+  closing with unsaved changes asks first.
+- **05c, delete.** A plain step closes the chain — what followed it moves up to its parent and into
+  the row it left. A condition takes both branches with it, after a confirmation naming what goes.
+  The trigger has no Delete at all.
+- Checked in the browser: saved a time zone and watched the card change to "Business Hours -
+  Asia/Tokyo"; end-before-start was refused; deleted Away Message and watched Add Comment #1
+  reattach to the Failure branch while the URL returned to `/` on its own.
+- Tests: 46 files, 816 tests. Lint clean, build fine.
+
+**The bug the browser caught and the tests didn't**
+
+Saving a business-hours node failed with "Could not save the step" — every time, while all 800-odd
+tests passed. `fromDraft` carries over the fields a form doesn't own, and one of those is
+`connectors`, taken from the store's node, which is reactive. `structuredClone` refuses a Proxy.
+The unit tests never saw it because they all pass plain objects.
+
+It is the same shape as the bug in Spec 01, where `hydrate` tried to clone Vue Query's proxy: Vue's
+reactivity leaking into a layer that is meant to be plain data. The drawer now builds from
+`toRaw(node)`, and a test mounts it on a reactive node and checks what reaches the API — the kind of
+test that only gets written after the browser shows you the problem.
+
+**What the review caught**
+
+- The API's second check couldn't fail for two fields: it validated the node by drafting it, and the
+  draft fills in what the canvas would show, so a blank name passed the very guard meant to catch
+  input that never went through the form.
+- A failed delete left its message behind for good — through "Keep it", through a later successful
+  save, and it would have hidden that save's own failure.
+- The time-zone list was rebuilt on every pick: 400 zones, a formatter each, re-sorted and
+  re-rendered to change one value.
+- Messages keyed by position went stale when a message part was removed.
+- A delete worked out its consequences 400 ms before applying them, while the canvas stayed usable.
+
+**Next**
+
+- Vercel, then the README. Those two are the only required things still missing.
+- Undo/redo stays out, by decision.
+
+---
+
 ## 2026-09-23: Day 3: Feature 4 (node details drawer)
 
 Branch: `feature/04-node-drawer` · Spec: `docs/specs/04-node-drawer.md`
