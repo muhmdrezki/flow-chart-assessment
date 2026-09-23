@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { reactive } from 'vue'
 import payload from '../../public/payload.json'
 import { getNodeSize } from '@/utils/nodeRegistry'
-import { useFlowStore } from './flow'
+import { HISTORY_LIMIT, useFlowStore } from './flow'
 
 describe('useFlowStore', () => {
   let store
@@ -491,6 +491,211 @@ describe('useFlowStore', () => {
 
       expect(store.nodes.map((node) => node.id)).toEqual(['1'])
       expect(store.edges).toEqual([])
+    })
+  })
+
+  describe('undo and redo', () => {
+    beforeEach(() => store.hydrate(payload))
+
+    const ids = () => store.nodes.map((node) => node.id)
+    const positionOf = (id) => ({ ...store.nodeById.get(id).position })
+
+    const newMessage = {
+      id: 'new01',
+      parentId: 'b0653a',
+      type: 'sendMessage',
+      name: 'Follow up',
+      data: { payload: [] },
+    }
+    const create = () =>
+      store.insertNodes([newMessage], { insertedId: 'new01', continuationId: 'new01' })
+
+    it('has nothing to take back on a freshly loaded flow', () => {
+      expect(store.canUndo).toBe(false)
+      expect(store.canRedo).toBe(false)
+      expect(store.undoLabel).toBe('')
+    })
+
+    it('does nothing when asked to undo nothing', () => {
+      store.undo()
+
+      expect(store.nodes).toHaveLength(7)
+    })
+
+    describe.each([
+      ['a create', () => create(), 'Create Follow up'],
+      [
+        'an edit',
+        () => store.replaceNode({ ...store.nodeById.get('e879e4'), name: 'Renamed' }),
+        'Edit Add Comment #1',
+      ],
+      ['a delete', () => store.removeNodes({ removeIds: ['e879e4'] }), 'Delete Add Comment #1'],
+      [
+        'a drag',
+        () => store.updateNodePositions([{ id: '1', position: { x: 11, y: 22 } }]),
+        'Move Trigger',
+      ],
+    ])('%s', (_, change, label) => {
+      it('can be taken back', () => {
+        const before = ids()
+
+        change()
+        expect(store.canUndo).toBe(true)
+        store.undo()
+
+        expect(ids()).toEqual(before)
+        expect(store.canUndo).toBe(false)
+      })
+
+      it('says what it would take back', () => {
+        change()
+
+        expect(store.undoLabel).toBe(label)
+      })
+
+      it('can be put back again', () => {
+        change()
+        const after = ids()
+
+        store.undo()
+        store.redo()
+
+        expect(ids()).toEqual(after)
+        expect(store.canRedo).toBe(false)
+      })
+    })
+
+    it('restores the positions a drag changed', () => {
+      store.updateNodePositions([{ id: '1', position: { x: 11, y: 22 } }])
+
+      store.undo()
+
+      expect(positionOf('1')).not.toEqual({ x: 11, y: 22 })
+    })
+
+    it('restores what an edit changed, and nothing else', () => {
+      const comment = store.nodeById.get('e879e4')
+      store.replaceNode({ ...comment, name: 'Renamed', data: { comment: 'Changed' } })
+
+      store.undo()
+
+      expect(store.nodeById.get('e879e4').name).toBe('Add Comment #1')
+      expect(store.nodeById.get('e879e4').data.comment).toBe('User message during off hours')
+      expect(store.nodes).toHaveLength(7)
+    })
+
+    it('brings back a deleted step with everything that went with it', () => {
+      store.removeNodes({
+        removeIds: ['d09c08', '161f52', '28c4b9', 'b0653a', 'b6a0c1', 'e879e4'],
+      })
+      expect(store.nodes).toHaveLength(1)
+
+      store.undo()
+
+      expect(store.nodes).toHaveLength(7)
+      expect(store.edges).toHaveLength(6)
+    })
+
+    it('puts back every position when a create re-arranged the whole flow', () => {
+      // A condition is wider than the step it follows, so creating one lays the flow out again.
+      // This is the case that decided snapshots over an inverse per action.
+      store.updateNodePositions([{ id: 'b0653a', position: { x: 999, y: 888 } }])
+      const dragged = positionOf('b0653a')
+
+      store.insertNodes(
+        [
+          {
+            id: 'bh01',
+            parentId: 'b6a0c1',
+            type: 'dateTime',
+            name: 'Office hours',
+            data: { action: 'businessHours', connectors: ['ok01', 'no01'], times: [] },
+          },
+          {
+            id: 'ok01',
+            parentId: 'bh01',
+            type: 'dateTimeConnector',
+            data: { connectorType: 'success' },
+          },
+          {
+            id: 'no01',
+            parentId: 'bh01',
+            type: 'dateTimeConnector',
+            data: { connectorType: 'failure' },
+          },
+        ],
+        { insertedId: 'bh01', continuationId: 'ok01' },
+      )
+      expect(positionOf('b0653a')).not.toEqual(dragged)
+
+      store.undo()
+
+      expect(positionOf('b0653a')).toEqual(dragged)
+      expect(store.nodes).toHaveLength(7)
+    })
+
+    it('steps back through several changes, newest first', () => {
+      create()
+      store.replaceNode({ ...store.nodeById.get('e879e4'), name: 'Renamed' })
+      expect(store.undoLabel).toBe('Edit Add Comment #1')
+
+      store.undo()
+      expect(store.undoLabel).toBe('Create Follow up')
+
+      store.undo()
+      expect(store.canUndo).toBe(false)
+      expect(ids()).toHaveLength(7)
+    })
+
+    it('forgets the redo branch once something new is done', () => {
+      create()
+      store.undo()
+      expect(store.canRedo).toBe(true)
+
+      store.removeNodes({ removeIds: ['e879e4'] })
+
+      expect(store.canRedo).toBe(false)
+    })
+
+    it('keeps a snapshot of its own, not a view of the flow', () => {
+      create()
+
+      // Changing the flow afterwards must not reach into what was remembered.
+      store.updateNodePositions([{ id: 'new01', position: { x: 1, y: 2 } }])
+      store.undo()
+      store.undo()
+
+      expect(ids()).not.toContain('new01')
+    })
+
+    it('remembers a node that was edited, which holds a live position until it is copied', () => {
+      // Read through the store a position is reactive, and structuredClone refuses a proxy.
+      store.replaceNode({ ...store.nodeById.get('e879e4'), name: 'Renamed' })
+
+      expect(() => store.removeNodes({ removeIds: ['e879e4'] })).not.toThrow()
+    })
+
+    it('stops remembering after fifty changes, dropping the oldest', () => {
+      for (let count = 0; count < HISTORY_LIMIT + 10; count += 1) {
+        store.updateNodePositions([{ id: '1', position: { x: count, y: count } }])
+      }
+
+      for (let count = 0; count < HISTORY_LIMIT; count += 1) store.undo()
+
+      expect(store.canUndo).toBe(false)
+      // The first ten moves are gone, so the flow doesn't go all the way back to where it started.
+      expect(positionOf('1')).toEqual({ x: 9, y: 9 })
+    })
+
+    it('starts clean when a flow is loaded', () => {
+      create()
+      setActivePinia(createPinia())
+      const fresh = useFlowStore()
+
+      fresh.hydrate(payload)
+
+      expect(fresh.canUndo).toBe(false)
+      expect(fresh.canRedo).toBe(false)
     })
   })
 })
