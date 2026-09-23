@@ -45,10 +45,13 @@ vi.mock('@vue-flow/core', async () => {
     },
   })
   stubs.Handle = defineComponent({ name: 'Handle', render: () => null })
+  stubs.setCenter = vi.fn()
   return {
     VueFlow: stubs.VueFlow,
     Handle: stubs.Handle,
     Position: { Top: 'top', Bottom: 'bottom' },
+    // The canvas moves the viewport through this, so the spies stand in for the real flow instance.
+    useVueFlow: () => ({ setCenter: stubs.setCenter, getViewport: () => ({ zoom: 1.5 }) }),
   }
 })
 
@@ -73,6 +76,7 @@ describe('FlowCanvas', () => {
 
   beforeEach(() => {
     stubs.selectedId = null
+    stubs.setCenter.mockClear()
     setActivePinia(createPinia())
     store = useFlowStore()
     store.hydrate(payload)
@@ -211,6 +215,55 @@ describe('FlowCanvas', () => {
       .props('nodes')
       .find((node) => node.id === '1')
     expect(trigger.position).toEqual({ x: 11, y: 12 })
+  })
+
+  describe('focusNode', () => {
+    it('centres the viewport on the node, keeping the current zoom', async () => {
+      const wrapper = mount(FlowCanvas)
+      const { position } = store.nodeById.get('b6a0c1')
+
+      await wrapper.vm.focusNode('b6a0c1')
+
+      // A card is 240 × 88, so its middle is half of each past its top-left corner.
+      expect(stubs.setCenter).toHaveBeenCalledWith(position.x + 120, position.y + 44, {
+        zoom: 1.5,
+        duration: 400,
+      })
+    })
+
+    it('measures pills by their own size', async () => {
+      const wrapper = mount(FlowCanvas)
+      const { position } = store.nodeById.get('161f52')
+
+      await wrapper.vm.focusNode('161f52')
+
+      expect(stubs.setCenter).toHaveBeenCalledWith(
+        position.x + 48,
+        position.y + 14,
+        expect.anything(),
+      )
+    })
+
+    it('moves without an animation when the viewer asked for less motion', async () => {
+      vi.stubGlobal('matchMedia', () => ({ matches: true }))
+      const wrapper = mount(FlowCanvas)
+
+      await wrapper.vm.focusNode('b6a0c1')
+
+      expect(stubs.setCenter).toHaveBeenCalledWith(
+        expect.any(Number),
+        expect.any(Number),
+        expect.objectContaining({ duration: 0 }),
+      )
+    })
+
+    it('does nothing for a node that is not in the flow', async () => {
+      const wrapper = mount(FlowCanvas)
+
+      await wrapper.vm.focusNode('ghost')
+
+      expect(stubs.setCenter).not.toHaveBeenCalled()
+    })
   })
 
   it('renders the background and the zoom controls without the lock toggle', () => {

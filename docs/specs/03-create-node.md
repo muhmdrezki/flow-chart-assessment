@@ -1,6 +1,7 @@
 # Spec 03: Create Node
 
-Status: **Confirmed 2026-09-23** (decisions 3a–3j). PRs 3a (utils + store) and 3b (API + mutation) are built; 3c–3d are next.
+Status: **Confirmed 2026-09-23** (decisions 3a–3j). All four PRs are built: 3a utils + store, 3b API +
+mutation, 3c UI kit, 3d the form. Every acceptance criterion in §4 is met.
 Brief: *"Add a **Create New Node** button on the page for creating nodes with the following fields:
 Title (text field), Description (text field), Type of Node (select field): Send Message
 (`sendMessage`), Add Comments (`addComment`), Business Hours (`businessHours`)."* Also: *"All input fields
@@ -386,7 +387,37 @@ either finishes or cancels.
 - `offsetParent`, the usual visibility check, **always reports null in jsdom**, so reachability is
   decided by attributes instead, which behaves the same in the browser and in tests.
 
-### 3.5 Stacked PRs
+### 3.5 Deviations and decisions while building PR 3d (the form)
+
+- **The footer buttons live outside the `<form>`,** in the drawer's footer, so Create points at the
+  form with its own `form` attribute, which is what a native submit button does. No hidden button,
+  and the Enter key still submits from any field.
+- **`FlowCanvas` exposes `focusNode(id)`.** Calling `useVueFlow()` in the canvas (above `<VueFlow>`)
+  provides the same flow instance to the component below, which is how the viewport is moved. It
+  keeps the current zoom and skips the animation when the viewer asked for reduced motion.
+- **Branches are named after their condition** in "Add after" ("Business Hours · Success"). With two
+  conditions in a flow, the list would otherwise show two identical "Success" entries.
+- **Verifying in the browser:** the automated tab runs in the background, where Chrome throttles CSS
+  transitions and animation frames, so the drawer's closing animation and the canvas-centring
+  animation freeze part-way. The logic was confirmed (both components reported `open: false`, the
+  node was created, the viewport moved) and the rest is covered by tests; the animations need a
+  foreground window to watch.
+
+**From the code review (5 findings, all addressed):**
+- **Focus was returned to an inert element.** On close, the focus trap restored focus *before* the
+  background stopped being `inert`, and focusing an inert element does nothing, so focus fell to the
+  body: tab to Create New Node, press Enter, press Esc, and the next Tab restarted at the top of the
+  page. The inert watcher is now registered first and releases the page synchronously. (jsdom doesn't
+  enforce `inert`, so the test asserts the ordering.)
+- **Closing during a save didn't cancel it.** Cancel was disabled while saving, but the X and the
+  scrim weren't, so the node still arrived and the canvas panned to it after the user had backed out.
+  `BaseDrawer` gained a `dismissible` prop, and the create drawer sets it while the request is in
+  flight.
+- **A server message stuck to a field after it was corrected.** It now clears as soon as that field
+  changes, because the message was about the value that was sent.
+- **`CreateNodeForm` declared a `cancel` event it never emitted** (dead public API), now removed.
+
+### 3.6 Stacked PRs
 
 | PR | Contents |
 |---|---|
@@ -395,7 +426,7 @@ either finishes or cancels.
 | 3c | UI kit: BaseInput, BaseTextarea, BaseSelect, FormField, BaseDrawer, + tests |
 | 3d | CreateNodeForm, the header button + drawer, centring on the new node, + tests, docs |
 
-### 3.6 Tests (outline)
+### 3.7 Tests (outline)
 - **Validation:** every rule and message; trimming; the parent rules (Business Hours not allowed).
 - **Ids:** format, uniqueness against existing ids.
 - **Factory:** each type's exact shape; business hours makes 3 nodes wired together, with `connectors`.
@@ -411,16 +442,16 @@ either finishes or cancels.
 
 ---
 
-## 4. Acceptance criteria (draft)
+## 4. Acceptance criteria
 
-- [ ] A **Create New Node** button in the header opens the form.
-- [ ] Title, Description, Type and Add after are all validated, with clear messages.
-- [ ] Creating inserts the node after the chosen step; later steps move down one row; nothing overlaps.
-- [ ] A new Business Hours node comes with Success and Failure branches.
-- [ ] The create goes through `useMutation`; Pinia changes only on success; pending and error states
+- [x] A **Create New Node** button in the header opens the form.
+- [x] Title, Description, Type and Add after are all validated, with clear messages.
+- [x] Creating inserts the node after the chosen step; later steps move down one row; nothing overlaps.
+- [x] A new Business Hours node comes with Success and Failure branches.
+- [x] The create goes through `useMutation`; Pinia changes only on success; pending and error states
       are shown.
-- [ ] The drawer is keyboard-accessible (focus moves in and is kept there, Esc closes, focus returns to the button) and the view centres on the new node.
-- [ ] Lint clean, tests green, build succeeds.
+- [x] The drawer is keyboard-accessible (focus moves in and is kept there, Esc closes, focus returns to the button) and the view centres on the new node.
+- [x] Lint clean, tests green, build succeeds.
 
 ## 5. Decisions (all confirmed 2026-09-23)
 

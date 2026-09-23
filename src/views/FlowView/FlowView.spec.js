@@ -8,11 +8,33 @@ import FlowView from './FlowView.vue'
 
 vi.mock('@/composables/useFlowLoader', () => ({ useFlowLoader: vi.fn() }))
 
-// The canvas has its own tests; here it only matters whether it is shown.
+const stubs = vi.hoisted(() => ({ focusNode: vi.fn() }))
+
+// The canvas has its own tests; here it only matters whether it is shown, and that the view asks
+// it to move to a new node.
 vi.mock('@/components/canvas/FlowCanvas/FlowCanvas.vue', async () => {
   const { defineComponent, h } = await import('vue')
   return {
-    default: defineComponent({ name: 'FlowCanvas', render: () => h('div', { id: 'canvas' }) }),
+    default: defineComponent({
+      name: 'FlowCanvas',
+      setup: (_, { expose }) => {
+        expose({ focusNode: stubs.focusNode })
+        return () => h('div', { id: 'canvas' })
+      },
+    }),
+  }
+})
+
+// The drawer has its own tests; here only its open state and events matter.
+vi.mock('@/components/forms/CreateNodeDrawer/CreateNodeDrawer.vue', async () => {
+  const { defineComponent, h } = await import('vue')
+  return {
+    default: defineComponent({
+      name: 'CreateNodeDrawer',
+      props: { open: Boolean },
+      emits: ['close', 'created'],
+      render: () => h('div', { id: 'create-drawer' }),
+    }),
   }
 })
 
@@ -85,5 +107,53 @@ describe('FlowView', () => {
 
     expect(wrapper.find('#canvas').exists()).toBe(false)
     expect(wrapper.find('[role="alert"]').text()).toContain("Couldn't display the flow")
+  })
+
+  describe('creating a node', () => {
+    const drawer = (wrapper) => wrapper.findComponent({ name: 'CreateNodeDrawer' })
+    const createButton = (wrapper) =>
+      wrapper.findAll('header button').find((button) => button.text().includes('Create New Node'))
+
+    beforeEach(() => {
+      stubs.focusNode.mockClear()
+      useFlowStore().isHydrated = true
+    })
+
+    it('offers the button only once there is a flow to add to', () => {
+      useFlowStore().isHydrated = false
+      expect(createButton(mountView())).toBeUndefined()
+
+      useFlowStore().isHydrated = true
+      expect(createButton(mountView())).toBeDefined()
+    })
+
+    it('keeps the drawer closed until the button is used', () => {
+      expect(drawer(mountView()).props('open')).toBe(false)
+    })
+
+    it('opens the drawer from the header button', async () => {
+      const wrapper = mountView()
+
+      await createButton(wrapper).trigger('click')
+
+      expect(drawer(wrapper).props('open')).toBe(true)
+    })
+
+    it('closes the drawer when it asks to be closed', async () => {
+      const wrapper = mountView()
+      await createButton(wrapper).trigger('click')
+
+      await drawer(wrapper).vm.$emit('close')
+
+      expect(drawer(wrapper).props('open')).toBe(false)
+    })
+
+    it('moves the canvas to the node that was created', async () => {
+      const wrapper = mountView()
+
+      await drawer(wrapper).vm.$emit('created', 'new01')
+
+      expect(stubs.focusNode).toHaveBeenCalledWith('new01')
+    })
   })
 })

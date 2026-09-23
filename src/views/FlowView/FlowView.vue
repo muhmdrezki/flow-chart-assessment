@@ -1,19 +1,37 @@
 <script setup>
+import { ref, useTemplateRef } from 'vue'
 import BaseButton from '@/components/ui/BaseButton/BaseButton.vue'
+import BaseIcon from '@/components/ui/BaseIcon/BaseIcon.vue'
 import BaseSpinner from '@/components/ui/BaseSpinner/BaseSpinner.vue'
 import EmptyState from '@/components/ui/EmptyState/EmptyState.vue'
 import FlowCanvas from '@/components/canvas/FlowCanvas/FlowCanvas.vue'
+import CreateNodeDrawer from '@/components/forms/CreateNodeDrawer/CreateNodeDrawer.vue'
 import { useFlowLoader } from '@/composables/useFlowLoader'
 import { useFlowStore } from '@/stores/flow'
 
 const store = useFlowStore()
 const { isPending, isError, isFetching, error, refetch } = useFlowLoader()
+
+const canvas = useTemplateRef('canvas')
+const isCreateOpen = ref(false)
+
+/** The canvas moves to the new node, so the user sees where it was added. */
+function onCreated(nodeId) {
+  canvas.value?.focusNode(nodeId)
+}
 </script>
 
 <template>
   <div class="flex h-screen flex-col bg-slate-50 text-slate-900">
-    <header class="flex h-14 shrink-0 items-center border-b border-slate-200 bg-white px-4">
+    <header
+      class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4"
+    >
       <h1 class="text-base font-semibold">Flow Builder</h1>
+
+      <BaseButton v-if="store.isHydrated" size="sm" @click="isCreateOpen = true">
+        <BaseIcon name="plus" :size="16" />
+        Create New Node
+      </BaseButton>
     </header>
 
     <main class="relative min-h-0 flex-1">
@@ -30,7 +48,7 @@ const { isPending, isError, isFetching, error, refetch } = useFlowLoader()
         </EmptyState>
       </div>
 
-      <FlowCanvas v-else-if="store.isHydrated" />
+      <FlowCanvas v-else-if="store.isHydrated" ref="canvas" />
 
       <!-- The query succeeded but the store couldn't take the data: never show a blank canvas. -->
       <div v-else class="grid h-full place-items-center p-6">
@@ -40,6 +58,8 @@ const { isPending, isError, isFetching, error, refetch } = useFlowLoader()
           message="The flow data loaded but couldn't be read."
         />
       </div>
+
+      <CreateNodeDrawer :open="isCreateOpen" @close="isCreateOpen = false" @created="onCreated" />
 
       <!-- Spec 04: the node drawer renders here as a child route. -->
       <RouterView />

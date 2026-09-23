@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onScopeDispose, ref, useId, watch } from 'vue'
+import { computed, nextTick, onScopeDispose, ref, useId, watch } from 'vue'
 import BaseIcon from '@/components/ui/BaseIcon/BaseIcon.vue'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 
@@ -10,6 +10,11 @@ const props = defineProps({
   description: { type: String, default: '' },
   /** An icon name for the header (see BaseIcon). */
   icon: { type: String, default: '' },
+  /**
+   * Whether the user can dismiss the panel. Turn it off while work is in flight that closing would
+   * not cancel, so the result can't arrive after the user thinks they've backed out.
+   */
+  dismissible: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['close'])
@@ -20,12 +25,9 @@ const titleId = useId()
 
 const isOpen = computed(() => props.open)
 
-useFocusTrap(panel, {
-  active: isOpen,
-  onEscape: () => emit('close'),
-  // Opening lands on the first field, not on the close button that comes before it in the header.
-  initialFocus: body,
-})
+function requestClose() {
+  if (props.dismissible) emit('close')
+}
 
 /**
  * While the drawer is open, the rest of the page is `inert`: it can't be clicked, focused or read
@@ -44,9 +46,22 @@ function setBackgroundInert(isInert) {
   if (!isInert) inerted = []
 }
 
+// Registered before the focus trap, so on close the background stops being inert *before* the trap
+// gives focus back: focusing an inert element does nothing, and focus would fall to the body.
 watch(isOpen, async (open) => {
-  await Promise.resolve()
-  setBackgroundInert(open)
+  if (!open) {
+    setBackgroundInert(false)
+    return
+  }
+  await nextTick()
+  setBackgroundInert(true)
+})
+
+useFocusTrap(panel, {
+  active: isOpen,
+  onEscape: requestClose,
+  // Opening lands on the first field, not on the close button that comes before it in the header.
+  initialFocus: body,
 })
 
 onScopeDispose(() => setBackgroundInert(false))
@@ -57,7 +72,7 @@ onScopeDispose(() => setBackgroundInert(false))
     <Transition name="drawer">
       <div v-if="open" class="fixed inset-0 z-40 flex justify-end">
         <!-- A light scrim: the canvas stays visible behind the panel, but clicks go to the panel. -->
-        <div class="absolute inset-0 bg-slate-900/10" @click="emit('close')" />
+        <div class="absolute inset-0 bg-slate-900/10" @click="requestClose" />
 
         <div
           ref="panel"
@@ -83,7 +98,8 @@ onScopeDispose(() => setBackgroundInert(false))
             <button
               type="button"
               class="-m-1 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent)/40"
-              @click="emit('close')"
+              :disabled="!dismissible"
+              @click="requestClose"
             >
               <BaseIcon name="x" :size="18" label="Close" />
             </button>

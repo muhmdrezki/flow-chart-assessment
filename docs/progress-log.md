@@ -4,6 +4,45 @@ Newest entries first.
 
 ---
 
+## 2026-09-23: Day 3: Feature 3d (create form) — Spec 03 complete
+
+Branch: `feature/03d-create-form` · Spec: `docs/specs/03-create-node.md` §3.5
+
+**Done**
+- Opened PR #9 for 3c (stacked on #8).
+- `CreateNodeForm`: the four fields, messages shown once a field is left or submit is pressed, a live
+  character count, the cursor jumping to the first problem, and fields locked while saving. Its
+  submit button sits in the drawer footer, linked by form id.
+- `CreateNodeDrawer`: the steps a node can be added after (branches named after their condition),
+  the mutation, per-field server messages, and it stays open on failure.
+- `FlowView`: the **Create New Node** button, and the canvas centring on the new node.
+- `FlowCanvas.focusNode(id)`: moves the viewport, keeping the zoom, skipping the animation under
+  reduced motion.
+- Checked in the browser by driving the form from the console: the drawer opened with all four
+  fields, "Add after" listed six steps with Business Hours excluded, and creating added the node and
+  moved the canvas.
+- Code review (high): 5 findings, all fixed.
+- Tests: 35 files, 572 tests, all passing. Coverage 98.4%.
+
+**Bugs the review caught**
+- **Focus was handed back to an inert element.** On close, focus was restored before the background
+  stopped being inert, so it fell to the body and the next Tab restarted at the top of the page.
+- **Closing during a save didn't cancel it**, so the node still arrived and the canvas panned to it
+  after the user had backed out. `BaseDrawer` gained a `dismissible` prop.
+- A server message stuck to a field after it had been corrected, and `CreateNodeForm` declared an
+  event it never emitted.
+
+**Worth knowing**
+- The automated browser tab runs in the background, where Chrome throttles CSS transitions and
+  animation frames, so the closing and centring animations freeze part-way there. The logic was
+  verified and the rest is covered by tests; the animations need a foreground window.
+
+**Next**
+- Merge PRs #7–#10 when the user has reviewed them.
+- Then Spec 04: the details drawer, URL-driven, including whether `BaseDrawer` needs a non-modal mode.
+
+---
+
 ## 2026-09-23: Day 3: Feature 3c (form UI kit)
 
 Branch: `feature/03c-form-ui-kit` · Spec: `docs/specs/03-create-node.md` §3.4

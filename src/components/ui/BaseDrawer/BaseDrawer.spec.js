@@ -116,6 +116,27 @@ describe('BaseDrawer', () => {
       expect(document.activeElement).toBe(query('header button'))
     })
 
+    it('lets the page take focus again before handing it back', async () => {
+      // Focus can't return to an inert element: the background has to be released first, or focus
+      // silently falls to the body. jsdom doesn't enforce inert, so the order is asserted directly.
+      const opener = document.createElement('button')
+      document.body.append(opener)
+      opener.focus()
+
+      const wrapper = mount(BaseDrawer, {
+        props: { open: false, title: 'Create node' },
+        slots: { default: '<input />' },
+        attachTo: document.body,
+      })
+      await wrapper.setProps({ open: true })
+      await vi.waitFor(() => expect(opener.parentElement.inert ?? opener.inert).toBe(true))
+
+      await wrapper.setProps({ open: false })
+
+      expect(opener.inert).toBeFalsy()
+      await vi.waitFor(() => expect(document.activeElement).toBe(opener))
+    })
+
     it('makes the rest of the page inert while it is open', async () => {
       const behind = document.createElement('div')
       document.body.append(behind)
