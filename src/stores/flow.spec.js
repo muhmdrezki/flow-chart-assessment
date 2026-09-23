@@ -86,18 +86,37 @@ describe('useFlowStore', () => {
   describe('nodeDisplayById', () => {
     beforeEach(() => store.hydrate(payload))
 
-    it('gives every node its title and description', () => {
+    it('gives every node its title, its description and what it holds', () => {
+      const plain = (text) => ({ label: '', text })
+      const nothing = { label: '', text: '' }
+
       expect(Object.fromEntries(store.nodeDisplayById)).toEqual({
-        1: { title: 'Trigger', description: 'Conversation Opened' },
+        1: { title: 'Trigger', description: '', summary: plain('Conversation Opened') },
         b6a0c1: {
           title: 'Away Message',
-          description: 'Sorry, we are currently away. We will respond as soon as possible.',
+          description: '',
+          summary: {
+            label: 'Message',
+            text: 'Sorry, we are currently away. We will respond as soon as possible.',
+          },
         },
-        d09c08: { title: 'Business Hours', description: 'Business Hours - UTC' },
-        '161f52': { title: 'Success', description: '' },
-        '28c4b9': { title: 'Failure', description: '' },
-        b0653a: { title: 'Welcome Message', description: 'Hello there\n\nwelcome to the chat!' },
-        e879e4: { title: 'Add Comment #1', description: 'User message during off hours' },
+        d09c08: {
+          title: 'Business Hours',
+          description: '',
+          summary: plain('Business Hours - UTC'),
+        },
+        '161f52': { title: 'Success', description: '', summary: nothing },
+        '28c4b9': { title: 'Failure', description: '', summary: nothing },
+        b0653a: {
+          title: 'Welcome Message',
+          description: '',
+          summary: { label: 'Message', text: 'Hello there\n\nwelcome to the chat!' },
+        },
+        e879e4: {
+          title: 'Add Comment #1',
+          description: '',
+          summary: plain('User message during off hours'),
+        },
       })
     })
 
@@ -111,7 +130,7 @@ describe('useFlowStore', () => {
 
     it('updates when a node’s text changes', () => {
       store.nodeById.get('e879e4').data.comment = 'Follow up tomorrow'
-      expect(store.nodeDisplayById.get('e879e4').description).toBe('Follow up tomorrow')
+      expect(store.nodeDisplayById.get('e879e4').summary.text).toBe('Follow up tomorrow')
     })
   })
 
@@ -377,7 +396,8 @@ describe('useFlowStore', () => {
       expect(node('new01').data).toEqual({})
       expect(store.nodeDisplayById.get('new01')).toEqual({
         title: 'Add Comment',
-        description: 'No comment',
+        description: '',
+        summary: { label: '', text: 'No comment' },
       })
     })
   })

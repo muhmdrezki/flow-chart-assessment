@@ -49,46 +49,64 @@ export function getNodeTitle(node) {
   return node.name?.trim() || getNodeConfig(node).label
 }
 
+/** A summary with no label: the text stands on its own. */
+const plain = (text) => ({ label: '', text })
+
+/** The first thing the message actually sends, which is what the mockup puts on the card. */
 function describeMessage({ payload }) {
   const items = Array.isArray(payload) ? payload : []
   const text = items
     .filter((item) => item?.type === 'text')
     .map((item) => trimText(item.text))
     .find(Boolean)
-  if (text) return text
+  if (text) return { label: 'Message', text }
 
   const attachment = items.find((item) => item?.type === 'attachment' && item.attachment)
-  if (attachment) return getAttachmentName(attachment.attachment)
+  if (attachment) return { label: 'Message', text: getAttachmentName(attachment.attachment) }
 
-  return 'No message content'
+  return { label: 'Message', text: 'No content' }
 }
 
 const DESCRIBERS = {
   [NODE_KIND.TRIGGER]: ({ type }) => {
-    if (!type) return ''
+    if (!type) return plain('')
     // hasOwn, so an event named e.g. "toString" doesn't pick up Object.prototype's function.
-    return Object.hasOwn(TRIGGER_EVENT_LABELS, type) ? TRIGGER_EVENT_LABELS[type] : type
+    return plain(Object.hasOwn(TRIGGER_EVENT_LABELS, type) ? TRIGGER_EVENT_LABELS[type] : type)
   },
   [NODE_KIND.SEND_MESSAGE]: describeMessage,
-  [NODE_KIND.ADD_COMMENT]: (data) => trimText(data.comment) || 'No comment',
+  [NODE_KIND.ADD_COMMENT]: (data) => plain(trimText(data.comment) || 'No comment'),
   // As in the mockup ("Business Hours - UTC"); the hours themselves are shown in the drawer.
   [NODE_KIND.BUSINESS_HOURS]: (data) =>
-    `${NODE_REGISTRY[NODE_KIND.BUSINESS_HOURS].label} - ${data.timezone || DEFAULT_TIMEZONE}`,
-  [NODE_KIND.UNKNOWN]: () => 'Unsupported node',
+    plain(
+      `${NODE_REGISTRY[NODE_KIND.BUSINESS_HOURS].label} - ${data.timezone || DEFAULT_TIMEZONE}`,
+    ),
+  [NODE_KIND.UNKNOWN]: () => plain('Unsupported node'),
 }
 
 /**
- * The card's description: what the user typed, otherwise a summary derived from the node's data.
- * Pills (success/failure) show only their label, so they have none.
+ * What a card says under its title, in two parts, because they answer different questions.
+ *
+ * `description` is what the user wrote about this step — why it's here. `summary` is what the step
+ * actually holds, derived from the payload: the message, the comment, the event, the time zone.
+ * The card shows both when there are both, so writing a description no longer hides the message.
+ *
+ * The message is labelled, as the mockup labels it, and the two parts are kept separate so the card
+ * can set the message itself in italic without the label going with it.
+ *
+ * Pills (success/failure) show only their label, so they have neither.
+ *
+ * @typedef {{ description: string, summary: { label: string, text: string } }} NodeDisplayText
  * @param {{ type?: string, data?: Record<string, any> }} node
- * @returns {string}
+ * @returns {NodeDisplayText}
  */
-export function getNodeDescription(node) {
-  if (getNodeConfig(node).variant === 'pill') return ''
+export function getNodeText(node) {
+  if (getNodeConfig(node).variant === 'pill') {
+    return { description: '', summary: { label: '', text: '' } }
+  }
 
   const data = node.data ?? {}
-  const custom = trimText(data.description)
-  if (custom) return custom
-
-  return DESCRIBERS[getNodeKind(node)]?.(data) ?? ''
+  return {
+    description: trimText(data.description),
+    summary: DESCRIBERS[getNodeKind(node)]?.(data) ?? { label: '', text: '' },
+  }
 }

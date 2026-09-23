@@ -1,8 +1,8 @@
 # Spec 02: Custom Node Components
 
 Status: **Confirmed 2026-09-22**
-Brief: *"Each node on the canvas should contain the following information: Icons, Title, Description
-(truncated)."* Also: *"success & failure node should not be accessible, purely for display in canvas."*
+Brief: _"Each node on the canvas should contain the following information: Icons, Title, Description
+(truncated)."_ Also: _"success & failure node should not be accessible, purely for display in canvas."_
 
 ---
 
@@ -17,6 +17,7 @@ Replace Vue Flow's plain default nodes with our own components, so the canvas lo
   user can tell which ones will open a drawer.
 
 **Out of scope:**
+
 - Clicking a node and opening the drawer (Spec 04).
 - Creating nodes (Spec 03).
 - The "+" buttons from the mockup (not required).
@@ -34,25 +35,25 @@ Everything that differs by kind lives in **one pure config object**, so componen
 ```js
 // src/utils/nodeRegistry.js (no Vue imports)
 NODE_REGISTRY[kind] = {
-  label: 'Send Message',       // title fallback + accessible name
-  icon: 'send',                // icon *name*; the ui/BaseIcon maps names to SVGs
-  variant: 'card' | 'pill',    // which component renders it
-  editable: true | false,      // drives cursor/hover now, and whether the drawer opens (Spec 04)
-  hasInput: true | false,      // false for the trigger only: a flow starts there (no top handle)
-  accent: '--color-kind-…',    // the CSS custom property shared by the node and its edges
-  size: { width, height },     // used by the layout, so spacing matches what's drawn
+  label: 'Send Message', // title fallback + accessible name
+  icon: 'send', // icon *name*; the ui/BaseIcon maps names to SVGs
+  variant: 'card' | 'pill', // which component renders it
+  editable: true | false, // drives cursor/hover now, and whether the drawer opens (Spec 04)
+  hasInput: true | false, // false for the trigger only: a flow starts there (no top handle)
+  accent: '--color-kind-…', // the CSS custom property shared by the node and its edges
+  size: { width, height }, // used by the layout, so spacing matches what's drawn
 }
 ```
 
-| kind | label | icon | variant | editable | colour token |
-|---|---|---|---|---|---|
-| trigger | Trigger | `zap` | card | **no** (decided in Spec 04, proposed no) | `--color-kind-trigger` |
-| sendMessage | Send Message | `send` | card | yes | `--color-kind-send-message` |
-| addComment | Add Comment | `message-square` | card | yes | `--color-kind-add-comment` |
-| businessHours | Business Hours | `calendar-clock` | card | yes | `--color-kind-business-hours` |
-| success | Success | `check` | pill | no | `--color-kind-success` |
-| failure | Failure | `x` | pill | no | `--color-kind-failure` |
-| unknown | Unknown | `circle-help` | card | no | `--color-kind-neutral` |
+| kind          | label          | icon             | variant | editable                                 | colour token                  |
+| ------------- | -------------- | ---------------- | ------- | ---------------------------------------- | ----------------------------- |
+| trigger       | Trigger        | `zap`            | card    | **no** (decided in Spec 04, proposed no) | `--color-kind-trigger`        |
+| sendMessage   | Send Message   | `send`           | card    | yes                                      | `--color-kind-send-message`   |
+| addComment    | Add Comment    | `message-square` | card    | yes                                      | `--color-kind-add-comment`    |
+| businessHours | Business Hours | `calendar-clock` | card    | yes                                      | `--color-kind-business-hours` |
+| success       | Success        | `check`          | pill    | no                                       | `--color-kind-success`        |
+| failure       | Failure        | `x`              | pill    | no                                       | `--color-kind-failure`        |
+| unknown       | Unknown        | `circle-help`    | card    | no                                       | `--color-kind-neutral`        |
 
 **Registering the components with Vue Flow: named slots (decision 2i).** `FlowCanvas` has one slot per
 kind. Vue Flow renders the slot named `node-<type>` for each node and passes it the node's props,
@@ -76,6 +77,7 @@ and the slot hands `type`, `data` and `selected` to `NodeCard` or `ConnectorNode
 ### 2.2 Titles and descriptions
 
 **Title:** `node.name`, otherwise the kind's registry label.
+
 - **Change from Spec 01:** a trigger without a name was titled "Conversation Opened". The mockup
   shows title **"Trigger"** with description **"Conversation Opened"**, so the event moves to the
   description.
@@ -83,14 +85,24 @@ and the slot hands `type`, `data` and `selected` to `NodeCard` or `ConnectorNode
 **Description:** a user-entered `data.description` wins when it's non-blank (Spec 03's create form
 stores it there). Otherwise it's derived per kind:
 
-| kind | derived description | payload example → result |
-|---|---|---|
-| trigger | the event's label from `TRIGGER_EVENT_LABELS`, else the raw `data.type` | `conversationOpened` → "Conversation Opened" |
-| sendMessage | first text message, else the first attachment's **file name**, else "No message content" | "Sorry, we are currently away…"; attachment-only → "354.jpg" |
-| addComment | the comment, else "No comment" | "User message during off hours" |
-| businessHours | `<label> - <timezone>`, as in the mockup (see 2.3) | "Business Hours - UTC" |
-| success / failure | none (pills show only the label) | — |
-| unknown | "Unsupported node" | — |
+> **Changed 2026-09-23.** "Wins" was wrong. Writing a description hid what the step actually held —
+> a Send Message card stopped showing its message. They answer different questions, so the card
+> shows **both**: the description on the first line, what the step holds on the second. With only
+> one of them, that one takes both lines.
+>
+> The message is also **labelled and quoted**, as the mockup writes it — `Message:` then the text in
+> italic — so the card distinguishes words that will be sent from a line describing the step. The
+> summary is returned as `{ label, text }` rather than one string, so the card can set only the text
+> in italic. Everything else stays unlabelled and upright.
+
+| kind              | derived description                                                                      | payload example → result                                     |
+| ----------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| trigger           | the event's label from `TRIGGER_EVENT_LABELS`, else the raw `data.type`                  | `conversationOpened` → "Conversation Opened"                 |
+| sendMessage       | first text message, else the first attachment's **file name**, else "No message content" | "Sorry, we are currently away…"; attachment-only → "354.jpg" |
+| addComment        | the comment, else "No comment"                                                           | "User message during off hours"                              |
+| businessHours     | `<label> - <timezone>`, as in the mockup (see 2.3)                                       | "Business Hours - UTC"                                       |
+| success / failure | none (pills show only the label)                                                         | —                                                            |
+| unknown           | "Unsupported node"                                                                       | —                                                            |
 
 Text is only **trimmed**, so blank text counts as missing and falls back. Line breaks and repeated
 spaces inside it are left as they are: HTML already collapses them when rendering a paragraph
@@ -123,6 +135,7 @@ the editor: it never runs the flow or checks the current time, so no time conver
 ### 2.4 Truncation (decision 2d)
 
 The brief says "truncated". We use **CSS line clamping** (`line-clamp-2`), not a JS character limit:
+
 - it truncates at the real rendered width, with the ellipsis in the right place for any font;
 - the full text goes in the `title` attribute, so hovering shows it.
 
@@ -132,6 +145,7 @@ Today `toVueFlowNodes` rebuilds every node's title (and, with this spec, its des
 store changes, **including after every drag**, even though a drag only changes a position.
 
 Instead:
+
 - A `computed` **display map** (`id → { title, description }`) is derived from the nodes' `name`/`data`
   only. It **doesn't depend on positions**, so a drag never recomputes titles or descriptions (e.g. the
   business-hours text).
@@ -145,11 +159,12 @@ custom node with a **new `events` object** and the live `computedPosition` on ev
 (`vue-flow-core.mjs`, the `h(nodeCmp, { … events: { ...node.events, ...on } … })` call). So when a
 wrapper re-renders, its node component re-renders too, whatever we pass in `data`. Preventing that would
 mean fighting the library, and it isn't worth it for a handful of cheap presentational components. The
-win we *can* guarantee and test is that derivation work isn't repeated.
+win we _can_ guarantee and test is that derivation work isn't repeated.
 
 ### 2.6 Node look
 
 **Cards** (240 × 88, fixed size so the layout's spacing matches what's drawn):
+
 ```
 ┌──────────────────────────────┐
 │ [icon] Title                 │   icon in the kind's accent colour on a tinted background
@@ -157,6 +172,7 @@ win we *can* guarantee and test is that derivation work isn't repeated.
 │ to two lines with an elli…   │
 └──────────────────────────────┘
 ```
+
 - The border takes the accent colour when **selected**. Visible focus ring.
 - **Editable:** `cursor-pointer`, hover shadow. **Display-only:** `cursor-default`, no hover lift.
   Every node stays **draggable** (the brief requires it for all nodes).
@@ -169,15 +185,15 @@ win we *can* guarantee and test is that derivation work isn't repeated.
 
 **Final palette** (replaces Spec 01's placeholders, shared by nodes and edges):
 
-| token | value |
-|---|---|
-| `--color-kind-trigger` | `#e11d48` (rose-600) |
+| token                         | value                  |
+| ----------------------------- | ---------------------- |
+| `--color-kind-trigger`        | `#e11d48` (rose-600)   |
 | `--color-kind-business-hours` | `#ea580c` (orange-600) |
-| `--color-kind-send-message` | `#0d9488` (teal-600) |
-| `--color-kind-add-comment` | `#2563eb` (blue-600) |
-| `--color-kind-success` | `#16a34a` (green-600) |
-| `--color-kind-failure` | `#dc2626` (red-600) |
-| `--color-kind-neutral` | `#94a3b8` (slate-400) |
+| `--color-kind-send-message`   | `#0d9488` (teal-600)   |
+| `--color-kind-add-comment`    | `#2563eb` (blue-600)   |
+| `--color-kind-success`        | `#16a34a` (green-600)  |
+| `--color-kind-failure`        | `#dc2626` (red-600)    |
+| `--color-kind-neutral`        | `#94a3b8` (slate-400)  |
 
 The 600 shades give readable contrast for icons on white. Edge colours stay as in Spec 01 (by source
 kind; connectors use the business-hours colour).
@@ -192,7 +208,9 @@ The whole app uses **Nunito**, a rounded sans-serif that suits a friendly, chat-
 - Wired in through Tailwind's theme, so every `font-sans` utility (the default) uses it:
   ```css
   @import '@fontsource-variable/nunito';
-  @theme { --font-sans: 'Nunito Variable', ui-sans-serif, system-ui, sans-serif; }
+  @theme {
+    --font-sans: 'Nunito Variable', ui-sans-serif, system-ui, sans-serif;
+  }
   ```
 - Vue Flow's own UI (the zoom controls) inherits the font from the page.
 - The system fonts in the fallback stack keep text readable while the font loads (`font-display: swap`,
@@ -265,30 +283,36 @@ src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handl
 ### 3.3 Contracts
 
 **`utils/nodeRegistry.js`**
+
 - `NODE_REGISTRY`: frozen, keyed by `NODE_KIND` (table 2.1).
 - `getNodeConfig(node)` → the registry entry for `getNodeKind(node)` (always defined; unknown → `unknown`).
 - `getNodeSize(node)` → `getNodeConfig(node).size`. `isEditable(node)` → `getNodeConfig(node).editable`.
 
 **`utils/nodeDescription.js`**
+
 - `trimText(value)` → the trimmed string, or `''` for non-strings (blank text counts as missing).
 - `getAttachmentName(url)` → the last path segment, without query/hash and URL-decoded
   (`https://x/id/396/536/354.jpg?hmac=…` → `354.jpg`). An invalid URL falls back to the raw string.
 - `getNodeDescription(node)` → the string from table 2.2 (`''` for pills).
 
 **`utils/businessHours.js`** (the business-hours domain, grown further by Spec 05)
+
 - `WEEK_DAYS = ['mon', …, 'sun']`, and `DEFAULT_TIMEZONE = 'UTC'`.
 - `isTimeString(value)` → true for a valid 24-hour `HH:mm` (`'09:00'`, `'23:59'`; not `'24:00'`, `'9:00'`).
 - Used by the validation (day names, time format) and by the description's timezone fallback.
 
 **`stores/flow.js`**
+
 - New getter `nodeDisplayById: computed<Map<id, { title, description }>>`. It reads only `name` and
   `data`, never `position`.
 - `hydrate` lays out with `getNodeSize`.
 
 **`utils/vueFlowAdapter.js`**
+
 - `toVueFlowNodes(nodes, displayById)` → `{ id, type: kind, position: {...}, data: displayById.get(id) }`.
 
 **`components/nodes/NodeCard`**
+
 - Props (as Vue Flow passes them): `id`, `type`, `data: { title, description }`, `selected`.
 - Reads its icon, label, colour and editability from `NODE_REGISTRY[type]`. It never touches the store.
 - Renders `<Handle>`s from `@vue-flow/core` (none at the top for the trigger).
@@ -308,29 +332,29 @@ src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handl
 
 ### 3.5 Stacked PRs
 
-| PR | Branch | Contents |
-|---|---|---|
-| 2a | `feature/02a-node-foundation` | This spec; `.gitignore` (.vite); registry, descriptions, business-hours constants, validation move + extension, title change, + tests |
-| 2b | `feature/02b-node-components` | `@lucide/vue`; BaseIcon, NodeCard, ConnectorNode, nodeTypes map, final colour palette (the components read it), + tests |
-| 2c | `feature/02c-node-canvas` | `@fontsource-variable/nunito`; store display map + sizes, adapter, FlowCanvas wiring, font + handle styles, + tests, docs |
+| PR  | Branch                        | Contents                                                                                                                              |
+| --- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 2a  | `feature/02a-node-foundation` | This spec; `.gitignore` (.vite); registry, descriptions, business-hours constants, validation move + extension, title change, + tests |
+| 2b  | `feature/02b-node-components` | `@lucide/vue`; BaseIcon, NodeCard, ConnectorNode, nodeTypes map, final colour palette (the components read it), + tests               |
+| 2c  | `feature/02c-node-canvas`     | `@fontsource-variable/nunito`; store display map + sizes, adapter, FlowCanvas wiring, font + handle styles, + tests, docs             |
 
 ---
 
 ## 4. Tests
 
-| file | cases |
-|---|---|
-| `utils/nodeRegistry.spec.js` | every kind has a complete entry; editable is true only for the 3 editable kinds; `getNodeConfig`/`getNodeSize` for each kind and for unknown/missing nodes |
-| `utils/nodeDescription.spec.js` | `getNodeTitle`: name wins (trimmed), otherwise the registry label, so the trigger is "Trigger"; `data.description` wins, but blank ones are ignored; every row of table 2.2 against the real payload; text → attachment → fallback order; `trimText`; trigger event labels (listed, unlisted, built-in property names); `getAttachmentName` for the payload URL, query/hash, encoded names, trailing slash, invalid URL |
-| `utils/businessHours.spec.js` | `WEEK_DAYS` order; `DEFAULT_TIMEZONE`; `isTimeString` accepts `00:00`/`09:00`/`23:59` and rejects `24:00`, `9:00`, `09:60`, `0900`, non-strings |
-| `utils/payloadValidation.spec.js` | all existing `findPayloadError` cases (moved), plus one case per new rule in 2.9; the real payload is still valid |
-| `utils/nodeKind.spec.js` | title tests move to `nodeDescription.spec.js` |
-| `utils/vueFlowAdapter.spec.js` | `type` is the kind; `data` is the **same object** as in the display map |
-| `stores/flow.spec.js` | `nodeDisplayById` values for the payload; **not recomputed when positions change** (same object identity after `updateNodePositions`); layout uses pill sizes (the pills' y spacing is smaller than the cards') |
-| `components/ui/BaseIcon/BaseIcon.spec.js` | renders an svg for each name; size; decorative vs labelled a11y; invalid name is rejected by the validator |
-| `components/nodes/NodeCard/NodeCard.spec.js` | title, description, icon per kind; clamp class + `title` tooltip with the full text; `data-editable` true/false; selected state; the trigger has no target handle and the others do (Handle stubbed) |
-| `components/nodes/ConnectorNode/ConnectorNode.spec.js` | label and icon for success/failure; tone attribute; handles |
-| `components/canvas/FlowCanvas/FlowCanvas.spec.js` | a `node-<kind>` slot for every registered kind; each payload node rendered by the right component (cards → NodeCard, pills → ConnectorNode) with `type`/`data`/`selected`; unknown types → the unknown card; nodes carry kind types and display data |
+| file                                                   | cases                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `utils/nodeRegistry.spec.js`                           | every kind has a complete entry; editable is true only for the 3 editable kinds; `getNodeConfig`/`getNodeSize` for each kind and for unknown/missing nodes                                                                                                                                                                                                                                                              |
+| `utils/nodeDescription.spec.js`                        | `getNodeTitle`: name wins (trimmed), otherwise the registry label, so the trigger is "Trigger"; `data.description` wins, but blank ones are ignored; every row of table 2.2 against the real payload; text → attachment → fallback order; `trimText`; trigger event labels (listed, unlisted, built-in property names); `getAttachmentName` for the payload URL, query/hash, encoded names, trailing slash, invalid URL |
+| `utils/businessHours.spec.js`                          | `WEEK_DAYS` order; `DEFAULT_TIMEZONE`; `isTimeString` accepts `00:00`/`09:00`/`23:59` and rejects `24:00`, `9:00`, `09:60`, `0900`, non-strings                                                                                                                                                                                                                                                                         |
+| `utils/payloadValidation.spec.js`                      | all existing `findPayloadError` cases (moved), plus one case per new rule in 2.9; the real payload is still valid                                                                                                                                                                                                                                                                                                       |
+| `utils/nodeKind.spec.js`                               | title tests move to `nodeDescription.spec.js`                                                                                                                                                                                                                                                                                                                                                                           |
+| `utils/vueFlowAdapter.spec.js`                         | `type` is the kind; `data` is the **same object** as in the display map                                                                                                                                                                                                                                                                                                                                                 |
+| `stores/flow.spec.js`                                  | `nodeDisplayById` values for the payload; **not recomputed when positions change** (same object identity after `updateNodePositions`); layout uses pill sizes (the pills' y spacing is smaller than the cards')                                                                                                                                                                                                         |
+| `components/ui/BaseIcon/BaseIcon.spec.js`              | renders an svg for each name; size; decorative vs labelled a11y; invalid name is rejected by the validator                                                                                                                                                                                                                                                                                                              |
+| `components/nodes/NodeCard/NodeCard.spec.js`           | title, description, icon per kind; clamp class + `title` tooltip with the full text; `data-editable` true/false; selected state; the trigger has no target handle and the others do (Handle stubbed)                                                                                                                                                                                                                    |
+| `components/nodes/ConnectorNode/ConnectorNode.spec.js` | label and icon for success/failure; tone attribute; handles                                                                                                                                                                                                                                                                                                                                                             |
+| `components/canvas/FlowCanvas/FlowCanvas.spec.js`      | a `node-<kind>` slot for every registered kind; each payload node rendered by the right component (cards → NodeCard, pills → ConnectorNode) with `type`/`data`/`selected`; unknown types → the unknown card; nodes carry kind types and display data                                                                                                                                                                    |
 
 ---
 
@@ -348,14 +372,14 @@ src/assets/main.css      EDIT  Nunito import + --font-sans, final palette, handl
 
 ## 6. Decisions (confirmed 2026-09-22)
 
-| # | Decision | Proposal |
-|---|---|---|
-| 2a | Icons | ✅ Add `@lucide/vue` (tree-shaken), behind our own `ui/BaseIcon` |
-| 2b | Components | ✅ One `NodeCard` for all card kinds + one `ConnectorNode` for pills, driven by the registry (not one component per kind) |
-| 2c | Business hours description | ✅ Follow the mockup: "Business Hours - <timezone>" (the hours are shown in the Spec 05 drawer) |
-| 2d | Truncation | ✅ CSS `line-clamp-2` + a `title` tooltip, not a JS character limit |
-| 2e | Pill colours | ✅ Green Success / red Failure (the mockup has both light blue) |
-| 2f | Validation | ✅ Moved to `utils/payloadValidation.js` and extended to the fields we now read |
-| 2g | Trigger title | ✅ "Trigger", with the event as its description (matches the mockup; changes Spec 01) |
-| 2h | Typeface | ✅ Nunito, self-hosted via `@fontsource-variable/nunito` (not a Google Fonts link) |
-| 2i | Registering node components | ✅ Named slots in `FlowCanvas` (`#node-<type>`), replacing the `nodeTypes` map (confirmed 2026-09-22, after 2b) |
+| #   | Decision                    | Proposal                                                                                                                  |
+| --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 2a  | Icons                       | ✅ Add `@lucide/vue` (tree-shaken), behind our own `ui/BaseIcon`                                                          |
+| 2b  | Components                  | ✅ One `NodeCard` for all card kinds + one `ConnectorNode` for pills, driven by the registry (not one component per kind) |
+| 2c  | Business hours description  | ✅ Follow the mockup: "Business Hours - <timezone>" (the hours are shown in the Spec 05 drawer)                           |
+| 2d  | Truncation                  | ✅ CSS `line-clamp-2` + a `title` tooltip, not a JS character limit                                                       |
+| 2e  | Pill colours                | ✅ Green Success / red Failure (the mockup has both light blue)                                                           |
+| 2f  | Validation                  | ✅ Moved to `utils/payloadValidation.js` and extended to the fields we now read                                           |
+| 2g  | Trigger title               | ✅ "Trigger", with the event as its description (matches the mockup; changes Spec 01)                                     |
+| 2h  | Typeface                    | ✅ Nunito, self-hosted via `@fontsource-variable/nunito` (not a Google Fonts link)                                        |
+| 2i  | Registering node components | ✅ Named slots in `FlowCanvas` (`#node-<type>`), replacing the `nodeTypes` map (confirmed 2026-09-22, after 2b)           |

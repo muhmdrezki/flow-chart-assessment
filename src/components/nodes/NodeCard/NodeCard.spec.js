@@ -19,10 +19,18 @@ const mountCard = (props = {}) =>
   mount(NodeCard, {
     props: {
       type: 'sendMessage',
-      data: { title: 'Welcome Message', description: 'Hello there welcome to the chat!' },
+      data: {
+        title: 'Welcome Message',
+        description: '',
+        summary: { label: 'Message', text: 'Hello there welcome to the chat!' },
+      },
       ...props,
     },
   })
+
+/** The label is followed by a non-breaking space, which reads as an ordinary one. */
+const NON_BREAKING_SPACE = String.fromCharCode(160)
+const plainText = (element) => element.text().split(NON_BREAKING_SPACE).join(' ')
 
 const handles = (wrapper) => wrapper.findAllComponents(stubs.Handle).map((handle) => handle.props())
 
@@ -31,11 +39,43 @@ describe('NodeCard', () => {
     expect(mountCard().text()).toContain('Welcome Message')
   })
 
-  it('clamps the description to two lines and shows the full text on hover', () => {
-    const description = mountCard().find('p.line-clamp-2')
+  describe('the second line', () => {
+    it('labels the message and sets the message itself apart, as the mockup does', () => {
+      const line = mountCard().find('p.line-clamp-2')
 
-    expect(description.text()).toBe('Hello there welcome to the chat!')
-    expect(description.attributes('title')).toBe('Hello there welcome to the chat!')
+      expect(plainText(line)).toBe('Message: Hello there welcome to the chat!')
+      expect(line.find('.italic').text()).toBe('Hello there welcome to the chat!')
+    })
+
+    it('shows the whole thing on hover, since the card only has room for a line of it', () => {
+      expect(mountCard().find('p.line-clamp-2').attributes('title')).toBe(
+        'Message: Hello there welcome to the chat!',
+      )
+    })
+
+    it('leaves an unlabelled summary alone', () => {
+      const wrapper = mountCard({
+        type: 'trigger',
+        data: { title: 'Trigger', description: '', summary: { label: '', text: 'Opened' } },
+      })
+
+      expect(wrapper.find('p.line-clamp-2').text()).toBe('Opened')
+      // Italic is for a message being quoted, not for a line describing the step.
+      expect(wrapper.find('.italic').exists()).toBe(false)
+    })
+
+    it('shows what the user wrote above what the step holds, each on its own line', () => {
+      const wrapper = mountCard({
+        data: {
+          title: 'Welcome Message',
+          description: 'Greets a first-time visitor',
+          summary: { label: 'Message', text: 'Hello there' },
+        },
+      })
+
+      const lines = wrapper.findAll('p.line-clamp-1')
+      expect(lines.map(plainText)).toEqual(['Greets a first-time visitor', 'Message: Hello there'])
+    })
   })
 
   it('omits the description when there is none', () => {

@@ -16,6 +16,12 @@ const emit = defineEmits(['activate'])
 
 const config = computed(() => NODE_REGISTRY[props.type] ?? NODE_REGISTRY.unknown)
 
+/** The whole thing on hover, since the card only has room for a line of it. */
+const summaryTitle = computed(() => {
+  const { label, text } = props.data.summary ?? {}
+  return label ? `${label}: ${text}` : text
+})
+
 /**
  * The card is a toggle: it opens its drawer, and opening the one that's already open closes it.
  * Pointer clicks arrive through Vue Flow, which owns dragging, so only the keyboard is handled
@@ -55,12 +61,29 @@ function onKeydown(event) {
       <p class="truncate text-sm font-semibold text-slate-800">{{ data.title }}</p>
     </div>
 
+    <!--
+      What the step is for, then what it holds. With both, each gets a line; with only one, it gets
+      the two the card has room for.
+    -->
     <p
       v-if="data.description"
-      class="line-clamp-2 text-xs leading-snug text-slate-500"
+      class="line-clamp-1 text-xs leading-snug text-slate-500"
       :title="data.description"
     >
       {{ data.description }}
+    </p>
+
+    <p
+      v-if="data.summary?.text"
+      class="text-xs leading-snug text-slate-500"
+      :class="data.description ? 'line-clamp-1' : 'line-clamp-2'"
+      :title="summaryTitle"
+    >
+      <!-- The space is written out: Vue drops whitespace between two elements on separate lines. -->
+      <span v-if="data.summary.label" class="text-slate-400">{{ data.summary.label }}:&nbsp;</span>
+      <!-- Italic for the message itself, which is words someone will read; not for a summary that
+           describes the step rather than quoting it. -->
+      <span :class="{ italic: data.summary.label }">{{ data.summary.text }}</span>
     </p>
 
     <Handle type="source" :position="Position.Bottom" />

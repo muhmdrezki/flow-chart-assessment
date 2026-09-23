@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import payload from '../../public/payload.json'
 import { normalizePayload } from './graph'
-import { getAttachmentName, getNodeDescription, getNodeTitle, trimText } from './nodeDescription'
+import { getAttachmentName, getNodeText, getNodeTitle, trimText } from './nodeDescription'
+
+/** What the card shows on its second line, as one string, which most of these tests care about. */
+const summaryOf = (node) => getNodeText(node).summary.text
 
 const byId = new Map(normalizePayload(payload).map((node) => [node.id, node]))
 const message = (items, extra = {}) => ({ type: 'sendMessage', data: { payload: items, ...extra } })
@@ -85,7 +88,7 @@ describe('getNodeTitle', () => {
   })
 })
 
-describe('getNodeDescription', () => {
+describe('getNodeText', () => {
   describe('with the payload', () => {
     it.each([
       ['1', 'Conversation Opened'],
@@ -96,27 +99,51 @@ describe('getNodeDescription', () => {
       ['161f52', ''],
       ['28c4b9', ''],
     ])('describes %s as %j', (id, description) => {
-      expect(getNodeDescription(byId.get(id))).toBe(description)
+      expect(summaryOf(byId.get(id))).toBe(description)
     })
   })
 
   describe('a user-entered description', () => {
-    it('wins over the derived one', () => {
+    it('is kept beside what the step holds, not instead of it', () => {
       const node = message([{ type: 'text', text: 'Hi' }], { description: 'Greets the visitor' })
-      expect(getNodeDescription(node)).toBe('Greets the visitor')
+
+      expect(getNodeText(node)).toEqual({
+        description: 'Greets the visitor',
+        summary: { label: 'Message', text: 'Hi' },
+      })
     })
 
     it('is ignored when blank', () => {
       const node = message([{ type: 'text', text: 'Hi' }], { description: '  \n ' })
-      expect(getNodeDescription(node)).toBe('Hi')
+
+      expect(getNodeText(node).description).toBe('')
+      expect(summaryOf(node)).toBe('Hi')
     })
 
-    it('is not shown on pills', () => {
+    it('is not shown on pills, which show only their label', () => {
       const node = {
         type: 'dateTimeConnector',
         data: { connectorType: 'success', description: 'x' },
       }
-      expect(getNodeDescription(node)).toBe('')
+
+      expect(getNodeText(node)).toEqual({ description: '', summary: { label: '', text: '' } })
+    })
+  })
+
+  describe('the message label', () => {
+    it('labels a message, as the mockup does', () => {
+      expect(getNodeText(message([{ type: 'text', text: 'Hi' }])).summary).toEqual({
+        label: 'Message',
+        text: 'Hi',
+      })
+    })
+
+    it.each([
+      ['a trigger', { type: 'trigger', data: { type: 'conversationOpened' } }],
+      ['a comment', { type: 'addComment', data: { comment: 'Noted' } }],
+      ['business hours', { type: 'dateTime', data: { action: 'businessHours' } }],
+    ])('leaves %s unlabelled, since its text stands on its own', (_, node) => {
+      expect(getNodeText(node).summary.label).toBe('')
     })
   })
 
@@ -127,7 +154,7 @@ describe('getNodeDescription', () => {
         { type: 'text', text: '   ' },
         { type: 'text', text: 'Second' },
       ]
-      expect(getNodeDescription(message(items))).toBe('Second')
+      expect(summaryOf(message(items))).toBe('Second')
     })
 
     it('uses the first attachment name when there is no text', () => {
@@ -135,7 +162,7 @@ describe('getNodeDescription', () => {
         { type: 'attachment', attachment: 'https://x.io/first.png' },
         { type: 'attachment', attachment: 'https://x.io/second.png' },
       ]
-      expect(getNodeDescription(message(items))).toBe('first.png')
+      expect(summaryOf(message(items))).toBe('first.png')
     })
 
     it.each([
@@ -149,41 +176,41 @@ describe('getNodeDescription', () => {
         ],
       ],
     ])('says so when it has %s', (_, items) => {
-      expect(getNodeDescription(message(items))).toBe('No message content')
+      expect(summaryOf(message(items))).toBe('No content')
     })
   })
 
   it('says so when a comment is empty or missing', () => {
-    expect(getNodeDescription({ type: 'addComment', data: { comment: ' ' } })).toBe('No comment')
-    expect(getNodeDescription({ type: 'addComment' })).toBe('No comment')
+    expect(summaryOf({ type: 'addComment', data: { comment: ' ' } })).toBe('No comment')
+    expect(summaryOf({ type: 'addComment' })).toBe('No comment')
   })
 
   it('shows the business-hours timezone', () => {
     const node = { type: 'dateTime', data: { action: 'businessHours', timezone: 'Asia/Jakarta' } }
-    expect(getNodeDescription(node)).toBe('Business Hours - Asia/Jakarta')
+    expect(summaryOf(node)).toBe('Business Hours - Asia/Jakarta')
   })
 
   it('falls back to UTC when business hours have no timezone', () => {
     const node = { type: 'dateTime', data: { action: 'businessHours' } }
-    expect(getNodeDescription(node)).toBe('Business Hours - UTC')
+    expect(summaryOf(node)).toBe('Business Hours - UTC')
   })
 
   it('shows an unlisted trigger event as its identifier', () => {
-    expect(getNodeDescription({ type: 'trigger', data: { type: 'tagAdded' } })).toBe('tagAdded')
+    expect(summaryOf({ type: 'trigger', data: { type: 'tagAdded' } })).toBe('tagAdded')
   })
 
   it.each(['toString', 'constructor', 'hasOwnProperty'])(
     'never shows a built-in object property for an event named %s',
     (event) => {
-      expect(getNodeDescription({ type: 'trigger', data: { type: event } })).toBe(event)
+      expect(summaryOf({ type: 'trigger', data: { type: event } })).toBe(event)
     },
   )
 
   it('leaves a trigger without an event undescribed', () => {
-    expect(getNodeDescription({ type: 'trigger', data: {} })).toBe('')
+    expect(summaryOf({ type: 'trigger', data: {} })).toBe('')
   })
 
   it('marks unrecognised nodes as unsupported', () => {
-    expect(getNodeDescription({ type: 'webhook', data: {} })).toBe('Unsupported node')
+    expect(summaryOf({ type: 'webhook', data: {} })).toBe('Unsupported node')
   })
 })
