@@ -302,7 +302,8 @@ describe('NodeDetailsDrawer', () => {
 
       await wrapper.setProps({ node: node(BUSINESS_HOURS) })
 
-      expect(queryAll('input[type="time"]')).toHaveLength(14)
+      // Seven days, each with a start and an end, every one its own time picker.
+      expect(queryAll('.dp--input')).toHaveLength(14)
     })
   })
 
