@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { isRootParent, normalizeId } from './ids'
 
+/*
+ * The payload mixes id types — the trigger's is the number 1, the rest are hex strings — so every
+ * id is normalised at the boundary and compared as a string everywhere after. These are small
+ * functions guarding a bug that would otherwise be very hard to see: a parent that matches nothing.
+ */
 describe('normalizeId', () => {
   it('turns numeric ids into strings', () => {
     expect(normalizeId(1)).toBe('1')

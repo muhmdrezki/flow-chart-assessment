@@ -4,6 +4,10 @@ import BaseInput from './BaseInput.vue'
 
 const mountInput = (props = {}) => mount(BaseInput, { props })
 
+/*
+ * The text field, and the accessibility wiring every form here relies on: the model round-trip, and
+ * an invalid field marking itself and pointing at the message that explains it.
+ */
 describe('BaseInput', () => {
   it('shows the current value', () => {
     expect(mountInput({ modelValue: 'Welcome back' }).find('input').element.value).toBe(

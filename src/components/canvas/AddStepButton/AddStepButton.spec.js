@@ -4,6 +4,14 @@ import AddStepButton from './AddStepButton.vue'
 
 const mountButton = (props = {}) => mount(AddStepButton, { props })
 
+/*
+ * The "+" that adds a step, in both the places it appears: on the line between two steps, and under
+ * a step with nothing after it yet. One component with two placements, so these tests are mostly
+ * about it staying one — the look and the accessible name must not drift apart between them.
+ *
+ * The two Vue Flow classes are load-bearing rather than cosmetic: without them, pressing the button
+ * drags the step or pans the canvas underneath it.
+ */
 describe('AddStepButton', () => {
   it('asks for a step to be added', async () => {
     const wrapper = mountButton()

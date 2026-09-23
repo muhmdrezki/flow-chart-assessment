@@ -21,6 +21,14 @@ const context = { allowedParentIds: ['1', 'b6a0c1'] }
 const validate = (overrides = {}) =>
   validateCreateNode({ ...VALID, parentId: '1', ...overrides }, context)
 
+/*
+ * Every rule a user's input is checked against, as pure functions. They are shared deliberately:
+ * the form calls them to show a message under a field, and the simulated API calls the same ones
+ * before it accepts a write, so input that never went through the form is held to identical rules.
+ *
+ * The business-hours rule is the one with real logic — a day must end after it starts — and it is
+ * a string comparison only because the times are wall-clock strings in a known format.
+ */
 describe('required', () => {
   it('accepts text', () => {
     expect(required('Hello', 'Title')).toBeNull()

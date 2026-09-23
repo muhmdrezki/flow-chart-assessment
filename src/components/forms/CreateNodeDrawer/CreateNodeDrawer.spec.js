@@ -18,6 +18,15 @@ const VALUES = {
   parentId: 'b6a0c1',
 }
 
+/*
+ * The shell around the create form: which steps may be added after, what the form is handed, and
+ * what happens when the API rejects the create. The form's own validation is tested next door.
+ *
+ * The parent list is the interesting part. It is built from the registry rather than from "every
+ * node", so the form can never offer a place the store would refuse — a condition is left out
+ * because its branches are what follows it, and each branch is named after its condition so two
+ * conditions don't both offer an identical "Success".
+ */
 describe('CreateNodeDrawer', () => {
   let mutation
 

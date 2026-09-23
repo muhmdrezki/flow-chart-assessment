@@ -22,6 +22,18 @@ const message = { id: 'm', type: 'sendMessage', data: {} }
 const comment = { id: 'c', type: 'addComment', data: {} }
 const unknown = { id: 'u', type: 'webhook', data: {} }
 
+/*
+ * The seam between our store and Vue Flow. Everything the canvas is handed is built here, which
+ * keeps the library's shape out of the store and the store's shape out of the components — and
+ * makes what the canvas renders testable without mounting a canvas at all.
+ *
+ * Two things are asserted that look like trivia and are not:
+ *
+ * - `toVueFlowNodes` reuses the display object rather than rebuilding it, so dragging a node hands
+ *   every other node the identical object and Vue re-renders none of them.
+ * - Only id, type, position and data are passed. Vue Flow merges what it is given into its own
+ *   internal nodes, so sending its own keys back (`selected`, `dimensions`) would reset them.
+ */
 describe('toVueFlowNodes', () => {
   const triggerDisplay = { title: 'Trigger', description: 'Conversation Opened' }
   const displayById = new Map([

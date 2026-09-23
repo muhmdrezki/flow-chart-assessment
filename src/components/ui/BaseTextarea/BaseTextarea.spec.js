@@ -4,6 +4,10 @@ import BaseTextarea from './BaseTextarea.vue'
 
 const mountTextarea = (props = {}) => mount(BaseTextarea, { props })
 
+/*
+ * The multi-line field, with the same contract as BaseInput: model round-trip, and an invalid state
+ * that a screen reader can follow to the message.
+ */
 describe('BaseTextarea', () => {
   it('shows the current value', () => {
     const wrapper = mountTextarea({ modelValue: 'Greets returning visitors' })

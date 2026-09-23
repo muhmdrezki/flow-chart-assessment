@@ -4,6 +4,11 @@ import EmptyState from './EmptyState.vue'
 
 const mountState = (props, slots) => mount(EmptyState, { props, slots })
 
+/*
+ * What is shown when there is nothing to show, or when loading failed. The error tone is announced
+ * as an alert, because a failure the user never hears about is a failure they will report as "it
+ * just sat there".
+ */
 describe('EmptyState', () => {
   it('renders the title and message', () => {
     const wrapper = mountState({ title: 'Nothing here', message: 'Add a node.' })

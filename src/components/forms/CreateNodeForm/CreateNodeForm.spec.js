@@ -33,6 +33,21 @@ async function fillIn(wrapper, overrides = {}) {
 const submit = (wrapper) => wrapper.find('form').trigger('submit')
 const messages = (wrapper) => wrapper.findAll('p').map((p) => p.text())
 
+/*
+ * Validation as the user experiences it, which is mostly about *when* a message appears rather
+ * than whether the rule is right — the rules themselves are pure functions tested in
+ * `validation.spec.js`.
+ *
+ * The timing is the whole design: a field says nothing until the user has moved on to another
+ * field in this form, or has tried to submit. Leaving the form altogether does not count, because
+ * a message landing on a field as the panel closes is noise about work the user has abandoned.
+ * That distinction is what the `relatedTarget` in these blur events is testing.
+ *
+ * Worth knowing: a blur triggered on a component wrapper is not the same event the browser sends —
+ * `BaseSelect`'s root is the wrapper that draws the arrow, and blur does not bubble out of the
+ * select inside it. The select's own test asserts it is passed on; here the two selects are blurred
+ * at the element to prove the message really arrives.
+ */
 describe('CreateNodeForm', () => {
   it('asks for a title, a description, a type and where to add the node', () => {
     const labels = mountForm()

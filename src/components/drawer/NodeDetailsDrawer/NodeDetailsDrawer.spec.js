@@ -26,6 +26,24 @@ const panel = () => query('[role="dialog"]')
 const AWAY_MESSAGE = 'b6a0c1'
 const BUSINESS_HOURS = 'd09c08'
 
+/*
+ * Editing a step. The drawer holds a **draft** — a flat, form-shaped copy — and the store changes
+ * only when a save succeeds, so most of this suite is really about that boundary: what is in the
+ * draft, what reaches the API, and what happens to the draft when a save fails.
+ *
+ * The cases carrying the most risk:
+ *
+ * - **Switching to another node** starts again from it, deliberately without asking. The canvas is
+ *   left clickable on purpose, so guarding this would mean blocking the clicks that make it true.
+ * - **The same node arriving as a different object** must *not* start again — undo replaces every
+ *   node in the flow, so this fires for changes that have nothing to do with what is open, and
+ *   reloading then would throw away typing the user never asked to lose.
+ * - **What reaches the API** is built from the raw node, not the store's reactive one: `fromDraft`
+ *   carries over fields the form doesn't own, and a reactive array among them would hand the API a
+ *   Proxy that `structuredClone` refuses. That bug reached the browser, so there is a test that
+ *   mounts on a reactive node and inspects what the mutation was called with.
+ * - **Delete** is confirmed first, and the confirmation names what goes with it.
+ */
 describe('NodeDetailsDrawer', () => {
   let mutation
   let deletion

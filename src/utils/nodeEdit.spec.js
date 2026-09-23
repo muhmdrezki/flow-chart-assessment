@@ -12,6 +12,15 @@ const WELCOME_MESSAGE = 'b0653a'
 const ADD_COMMENT = 'e879e4'
 const BUSINESS_HOURS = 'd09c08'
 
+/*
+ * The draft: one flat, form-shaped object that the drawer edits, converted back into the payload's
+ * own shapes on save. It exists so a form never has to know that a message is an array of parts or
+ * that business hours are a list of day records.
+ *
+ * The round trip is what these tests are really about. Drafting a node and converting it straight
+ * back must leave it unchanged, including the fields the form does not own — a condition's
+ * connectors, say — because losing one of those on save would quietly detach its branches.
+ */
 describe('toDraft', () => {
   it('reads the fields every node has', () => {
     const draft = toDraft(node(AWAY_MESSAGE))

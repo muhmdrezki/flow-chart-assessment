@@ -16,6 +16,11 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+/*
+ * The full-size picture view. It is a genuine modal — the only one in the app that stacks on top of
+ * another panel — so the focus and Escape behaviour is what matters: it takes focus when it opens,
+ * gives it back when it closes, and closes on Escape, the backdrop and the button.
+ */
 describe('BaseLightbox', () => {
   it('shows nothing when there is no picture', () => {
     mountLightbox({ src: '' })

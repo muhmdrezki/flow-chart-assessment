@@ -7,6 +7,15 @@ import { useFlowStore } from '@/stores/flow'
 /**
  * Loads the payload through Vue Query and hands it to the store once. Callers get the request
  * status only, never the data: the store is where nodes are read from.
+ *
+ * Returning `isPending`/`isError`/`refetch` but not `data` is the point, not an omission — it is
+ * how the one-way boundary is enforced rather than merely intended. A view can render a spinner or
+ * a retry button from this, and cannot accidentally start reading nodes out of the query cache,
+ * where they would be one edit out of date.
+ *
+ * `retry` is a function rather than a number because the two failures are different: a network
+ * blip is worth retrying, while a payload that parses but isn't a flow will fail identically three
+ * times and only delay the error the user needs to see.
  */
 export function useFlowLoader() {
   const store = useFlowStore()

@@ -62,6 +62,20 @@ vi.mock('@/components/drawer/NodeDetailsDrawer/NodeDetailsDrawer.vue', async () 
   }
 })
 
+/*
+ * The one route-level page, so this suite is about wiring rather than behaviour: the canvas, the
+ * two drawers and the toast each have their own tests, and here only what passes between them
+ * matters. They are stubbed for that reason — a failure in this file should mean the view connected
+ * something wrongly, not that a child changed.
+ *
+ * What it is really asserting is that the view owns the decisions no child can make alone: which
+ * panel may be open (one at a time, because the create form is modal), where a create was started
+ * from, and whether history may be used at all — that last rule is computed once here and handed
+ * to both the canvas buttons and the keyboard shortcuts, so the two cannot disagree.
+ *
+ * The loading and error branches are covered too: the store failing to hydrate must show a message
+ * rather than an empty canvas, which would look like a flow with nothing in it.
+ */
 describe('FlowView', () => {
   let loader
   let router

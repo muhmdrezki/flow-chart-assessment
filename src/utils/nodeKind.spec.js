@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { NODE_KIND, getEdgeColourKind, getNodeKind } from './nodeKind'
 
+/*
+ * The payload's type is not enough to tell nodes apart: business hours is a dateTime node, and both
+ * branch pills are dateTimeConnector nodes. This is the only place that knows the discriminators,
+ * so these tests are the fence keeping them from spreading into components.
+ *
+ * Anything unrecognised becomes "unknown" rather than throwing, so a flow from a newer version of
+ * the product still opens — drawn as a plain card and refused an editor.
+ */
 describe('getNodeKind', () => {
   it.each([
     [{ type: 'trigger', data: { type: 'conversationOpened' } }, NODE_KIND.TRIGGER],
