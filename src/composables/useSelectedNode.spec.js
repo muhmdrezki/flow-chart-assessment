@@ -13,6 +13,21 @@ const ADD_COMMENT = 'e879e4'
 const SUCCESS_PILL = '161f52'
 const TRIGGER = '1'
 
+/*
+ * The drawer is the URL, so this suite is really about one claim: the panel can never disagree
+ * with the address bar. There is no `isDrawerOpen` flag to fall out of step with, and these tests
+ * are what keeps it that way — every case below is a state that would need its own bug-prone branch
+ * if selection were held in a boolean beside the route.
+ *
+ * The high-risk cases are the ones where the URL names something the flow can't honour:
+ *
+ * - an id that isn't in the flow, or a display-only kind (a shared link to a Success pill)
+ * - a link opened before the payload has loaded, where "not found" is not yet knowable
+ * - a node deleted while its own drawer is open
+ *
+ * The middle one is the subtle one: redirecting too eagerly would break every shared link on a cold
+ * load, so the check has to wait for the data rather than run on mount.
+ */
 describe('useSelectedNode', () => {
   let router
   let store
@@ -70,6 +85,7 @@ describe('useSelectedNode', () => {
   describe('a link that cannot be opened', () => {
     beforeEach(() => store.hydrate(payload))
 
+    // A stale or hand-typed link. Showing an empty drawer would be worse than showing the canvas.
     it('goes back to the canvas for a node that is not in the flow', async () => {
       await selectionAt('/node/ghost')
 
@@ -85,6 +101,7 @@ describe('useSelectedNode', () => {
       expect(router.currentRoute.value.fullPath).toBe('/')
     })
 
+    // replace, not push: a redirect that pushed would trap Back between the bad URL and the fix.
     it('leaves no history entry behind, so Back does not bounce off it again', async () => {
       await selectionAt('/node/ghost')
 
@@ -96,6 +113,8 @@ describe('useSelectedNode', () => {
   })
 
   describe('before the flow has loaded', () => {
+    // The trap this avoids: on a cold load the store is empty for a moment, so every id looks
+    // unknown. Redirecting then would break every shared link, and only on a slow connection.
     it('selects nothing and redirects nothing, so a shared link survives', async () => {
       const { selectedNode } = await selectionAt(`/node/${AWAY_MESSAGE}`)
 
@@ -126,6 +145,8 @@ describe('useSelectedNode', () => {
       expect(selectedNode.value.id).toBe(AWAY_MESSAGE)
     })
 
+    // The toggle the brief asks for, and the reason select() is not simply a push: clicking the
+    // node that is already open is how you close its drawer.
     it('closes the node that is already open, because clicking it toggles', async () => {
       const { select } = await selectionAt(`/node/${AWAY_MESSAGE}`)
 
@@ -144,6 +165,8 @@ describe('useSelectedNode', () => {
       expect(selectedNode.value.id).toBe(ADD_COMMENT)
     })
 
+    // Selection is navigation, so Back walks the nodes visited. Undo is the other history, and
+    // the two are deliberately kept apart.
     it('leaves a history entry, so Back steps back through the selection', async () => {
       const { select } = await selectionAt(`/node/${AWAY_MESSAGE}`)
       select(ADD_COMMENT)
@@ -182,6 +205,11 @@ describe('useSelectedNode', () => {
     })
   })
 
+  /*
+   * Deleting the open node needs no code of its own: the id stops resolving, so the same redirect
+   * that handles a stale link handles this too. Worth a test precisely because nothing implements
+   * it — it is a property of deriving the selection, and a future refactor could lose it silently.
+   */
   describe('a node that is deleted while it is open', () => {
     it('takes its URL with it, so the drawer closes itself', async () => {
       store.hydrate(payload)

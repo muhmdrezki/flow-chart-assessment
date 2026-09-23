@@ -19,6 +19,20 @@ const nodes = {
   unknown: { type: 'webhook', data: {} },
 }
 
+/*
+ * The registry is where "what may this kind of node do?" is decided, so these tests read less like
+ * unit tests and more like the rules themselves written down: what can be deleted, what opens a
+ * drawer, what may be followed by another step.
+ *
+ * They are written as sweeps over every kind rather than a handful of examples on purpose. A kind
+ * added later gets the same questions asked of it automatically, and the entry that forgets a flag
+ * fails here rather than in whichever component happened to read it first.
+ *
+ * `hasDetails` is the one worth knowing about: it is asked twice in the app — by the card, to
+ * decide whether it is clickable and in the tab order, and by the route, to decide whether a URL
+ * may open a drawer. Two enforcement points, one answer, so a hand-typed link cannot reach an
+ * editor the canvas refuses to offer.
+ */
 describe('NODE_REGISTRY', () => {
   it('has an entry for every kind', () => {
     expect(Object.keys(NODE_REGISTRY).sort()).toEqual(Object.values(NODE_KIND).sort())
@@ -49,6 +63,8 @@ describe('NODE_REGISTRY', () => {
     expect(deletable.sort()).toEqual(['addComment', 'businessHours', 'sendMessage'])
   })
 
+  // The brief's own list: Success and Failure are "purely for display", and the trigger is the
+  // flow's entry point rather than a step (Spec 04). Everything else is editable.
   it('opens a drawer for everything except the display-only kinds', () => {
     const withDetails = Object.entries(NODE_REGISTRY)
       .filter(([, config]) => config.hasDetails)
@@ -72,6 +88,8 @@ describe('NODE_REGISTRY', () => {
     expect(withoutInput).toEqual(['trigger'])
   })
 
+  // One flag, three consumers: the create form's "Add after" list, the "+" on a connector, and the
+  // "+" under an open end. It is why nothing can be inserted between a condition and its branches.
   it('lets every kind have children except business hours, which branches instead', () => {
     const withoutChildren = Object.entries(NODE_REGISTRY)
       .filter(([, config]) => !config.canHaveChildren)

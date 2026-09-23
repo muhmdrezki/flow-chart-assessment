@@ -37,6 +37,15 @@ const textLines = (wrapper) => wrapper.findAll('p').slice(1)
 
 const handles = (wrapper) => wrapper.findAllComponents(stubs.Handle).map((handle) => handle.props())
 
+/*
+ * Every kind of step is drawn by this one component, with the registry deciding what differs — so
+ * the tests are grouped by *what a kind is allowed to do* rather than by markup.
+ *
+ * The half that matters is the display-only half. Success, Failure and the trigger must not be
+ * clickable, must not be in the tab order, and must not answer Enter or Space. That is three
+ * separate ways in, and forgetting one leaves a node the brief calls "purely for display" quietly
+ * openable — so each is asserted for each kind rather than assumed to follow from the others.
+ */
 describe('NodeCard', () => {
   it('shows the title', () => {
     expect(mountCard().text()).toContain('Welcome Message')

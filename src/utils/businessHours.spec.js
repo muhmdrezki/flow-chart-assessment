@@ -8,6 +8,14 @@ import {
   toClockParts,
 } from './businessHours'
 
+/*
+ * Opening hours as the payload stores them: wall-clock strings in the node's own timezone, never
+ * converted. That decision is what makes "ends after it starts" a string comparison rather than
+ * date arithmetic, and it is why these tests care so much about the exact "HH:mm" shape.
+ *
+ * The clock-part functions are the boundary with the date picker, which works in numbers. They are
+ * the only translation in the app, so a round trip has to come back byte-identical.
+ */
 describe('WEEK_DAYS', () => {
   it('lists the payload day names in week order, starting on Monday', () => {
     expect(WEEK_DAYS).toEqual(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])

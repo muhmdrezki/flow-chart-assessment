@@ -7,6 +7,19 @@ import { useFlowStore } from '@/stores/flow'
  * Creating a node: the request goes through Vue Query, and the store changes only once it has
  * succeeded, so the canvas never shows a node the "server" rejected.
  *
+ * This is the shape all three writes share, and it is the whole of the Query-to-Pinia boundary:
+ * `mutationFn` sends, `onSuccess` commits. Query owns what is in flight — pending, the error, the
+ * retry policy — and the store owns what is true. Nothing here writes optimistically.
+ *
+ * Optimistic updates would be the wrong trade here even though they look faster: this flow is a
+ * document being edited, so a rollback would have to put back positions and parent links that other
+ * changes may have touched in between — the same problem undo has, and undo needs a full snapshot
+ * to solve it. Waiting for a simulated request costs a few hundred milliseconds and removes the
+ * entire class of "it appeared, then vanished" states.
+ *
+ * The store is passed `toRaw(store.nodes)`: the API validates against the current flow and then
+ * clones what it is given, and `structuredClone` refuses a reactive Proxy.
+ *
  * @returns {{
  *   create: (values: object) => Promise<string>,
  *   isPending: import('vue').Ref<boolean>,

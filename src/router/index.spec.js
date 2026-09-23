@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import { createAppRouter } from './index'
 
+/*
+ * Two routes, and the second is the drawer: /node/:id is the same page with one step selected.
+ * Deliberately not a child route with its own component — the panel has to outlive the navigation
+ * so it can animate out, and the selection is read from the route rather than rebuilt from it.
+ */
 describe('router', () => {
   it('serves the flow view at the root', async () => {
     const router = createAppRouter(createMemoryHistory())

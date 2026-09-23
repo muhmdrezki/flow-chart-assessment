@@ -11,6 +11,16 @@ const PNG = 'data:image/png;base64,iVBORw0KGgo='
 const PDF = 'data:application/pdf;base64,JVBERi0='
 const LINK = 'https://fastly.picsum.photos/id/396/536/354.jpg?hmac=GmUos'
 
+/*
+ * The payload stores an attachment as a URL and nothing else, so an uploaded file has to become
+ * one: it is read into a `data:` URL and the value *is* the file. These tests cover both kinds of
+ * attachment at once for that reason — a link and an upload are the same field holding very
+ * different strings, and most of the bugs here would be one being mistaken for the other.
+ *
+ * `readAttachment` is the one with teeth: the bytes live in memory and in every undo snapshot
+ * taken afterwards, so the size limit is not a nicety, and the rejection path has to be a message
+ * the form can show rather than an unhandled promise.
+ */
 describe('isUploaded', () => {
   it('knows a file the user chose from a link', () => {
     expect(isUploaded(PNG)).toBe(true)

@@ -22,6 +22,12 @@ export const isUploaded = (value) => typeof value === 'string' && value.startsWi
 /**
  * Whether the attachment can be shown as a picture: by media type for an uploaded file, and by the
  * file name for a link, which is all a URL gives away without fetching it.
+ *
+ * Guessing from the extension is a guess, and knowingly so. The alternative is requesting every
+ * link the flow mentions just to decide how to draw a tile — slow, and it would leak which flows a
+ * user is editing to whoever hosts those files. Being wrong costs a broken image where a paperclip
+ * belonged; being right costs nothing.
+ *
  * @param {string} value
  */
 export function isImageAttachment(value) {

@@ -36,6 +36,25 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+/*
+ * Keyboard focus while a panel is open — the part of accessibility that is invisible until someone
+ * relies on it, and therefore the part most worth pinning down in tests.
+ *
+ * Two modes, and the difference is the interesting bit. A **modal** panel cycles Tab within itself,
+ * because the page behind it is inert and tabbing there would strand the user. A **non-modal** one
+ * (the details drawer, which deliberately leaves the canvas clickable) must let Tab walk out, or
+ * the panel would trap a keyboard user in a page that is otherwise still live.
+ *
+ * The subtler cases:
+ *
+ * - Escape is answered only when the key came from inside the panel, so a popup living outside it —
+ *   a teleported picker menu — can handle its own Escape without closing the panel underneath.
+ * - Where focus returns to is tracked as it moves, not captured once on open: a non-modal panel can
+ *   stay open while the user clicks a different node, and focus should go back to what the panel is
+ *   about *now*.
+ * - The listener is removed when the panel is destroyed while still open — a route change, a v-if
+ *   above it — or it would go on swallowing Tab and Escape for the rest of the session.
+ */
 describe('useFocusTrap', () => {
   it('moves focus to the first control when it becomes active', async () => {
     const wrapper = mount(Panel, { props: { active: false }, attachTo: document.body })

@@ -1,3 +1,16 @@
+/*
+ * Placing a *new* node, as opposed to laying out the whole flow.
+ *
+ * `computeLayout` decides every position from the tree, which is right when the tree's shape is all
+ * we know — on load, or when a condition's branches change the number of columns. It is wrong after
+ * an insert: it would also "tidy" every node the user had dragged, and the reasonable act of adding
+ * a step would throw away their arrangement.
+ *
+ * So an insert moves the least it can. The new node goes directly below its parent, and whatever
+ * used to follow is shifted by a distance rather than moved to a computed position — a node keeps
+ * whatever offset it was given, and only ever travels down. The layout stays "ours" where the data
+ * decides it and "theirs" where the user has since had an opinion.
+ */
 import { Y_GAP } from './layout'
 import { getNodeSize } from './nodeRegistry'
 
@@ -44,6 +57,11 @@ export function getInsertShift(parent, continuation) {
  * @returns {Map<string, { x: number, y: number }>}
  */
 export function shiftSubtree(nodes, rootIds, { dx = 0, dy = 0 }) {
+  /*
+   * Returning a map instead of writing positions is what lets the caller apply the move in one go,
+   * after its own checks have passed. A half-applied shift — some of a branch moved, the rest not —
+   * is a flow no undo entry describes, because the snapshot was taken before any of it.
+   */
   const moved = collectSubtreeIds(nodes, rootIds)
 
   return new Map(

@@ -5,6 +5,10 @@ import BaseCheckbox from './BaseCheckbox.vue'
 const mountCheckbox = (props = {}) =>
   mount(BaseCheckbox, { props: { label: 'Once per contact', ...props } })
 
+/*
+ * A checkbox with a real label, including the case the business-hours grid needs: a label that is
+ * hidden from sight but still read out, since the day's name is already beside it.
+ */
 describe('BaseCheckbox', () => {
   it('labels the box with its text', () => {
     const wrapper = mountCheckbox()
