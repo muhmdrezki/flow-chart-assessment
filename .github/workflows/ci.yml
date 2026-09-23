@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Adds a "Run workflow" button in the Actions tab, for running the checks against any branch
+  # without having to push a commit to ask.
+  workflow_dispatch:
 
 jobs:
   check:
