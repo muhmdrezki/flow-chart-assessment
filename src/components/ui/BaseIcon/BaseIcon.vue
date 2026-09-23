@@ -1,5 +1,15 @@
 <script>
-import { CalendarClock, Check, CircleHelp, MessageSquare, Send, X, Zap } from '@lucide/vue'
+import {
+  CalendarClock,
+  Check,
+  CircleHelp,
+  CirclePlus,
+  MessageSquare,
+  Plus,
+  Send,
+  X,
+  Zap,
+} from '@lucide/vue'
 
 // Icons are referenced by name so that callers (and the pure node registry) don't import SVGs.
 // Only these are bundled; add one here when a new name is needed.
@@ -7,7 +17,9 @@ const ICONS = {
   'calendar-clock': CalendarClock,
   check: Check,
   'circle-help': CircleHelp,
+  'circle-plus': CirclePlus,
   'message-square': MessageSquare,
+  plus: Plus,
   send: Send,
   x: X,
   zap: Zap,

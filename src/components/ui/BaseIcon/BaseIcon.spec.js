@@ -2,7 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BaseIcon from './BaseIcon.vue'
 
-const NAMES = ['calendar-clock', 'check', 'circle-help', 'message-square', 'send', 'x', 'zap']
+const NAMES = [
+  'calendar-clock',
+  'check',
+  'circle-help',
+  'circle-plus',
+  'message-square',
+  'plus',
+  'send',
+  'x',
+  'zap',
+]
 
 describe('BaseIcon', () => {
   it.each(NAMES)('renders the %s icon as an svg', (name) => {
