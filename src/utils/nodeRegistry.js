@@ -8,6 +8,9 @@ const PILL_SIZE = Object.freeze({ width: 96, height: 28 })
  *
  * - `icon` is a name that `ui/BaseIcon` maps to an SVG, which keeps this file free of Vue imports.
  * - `accent` is the CSS custom property shared by the node and its outgoing edges.
+ * - `purpose` is the line under the drawer's title, saying what the step does (as in the mockup).
+ * - `deletable` is false for the trigger, which a flow can't be without, and for the branch pills,
+ *   which belong to their condition.
  * - `hasDetails` decides whether clicking a node opens the details drawer. Success and failure are
  *   "purely for display in the canvas" per the brief. It says nothing about *editing*: the trigger
  *   opens a drawer whose event is read-only (Spec 04, decision 4c).
@@ -24,6 +27,8 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'zap',
     variant: 'card',
     hasDetails: true,
+    purpose: 'Starts the flow when this happens in a conversation.',
+    deletable: false,
     creatable: false,
     hasInput: false,
     canHaveChildren: true,
@@ -35,6 +40,8 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'send',
     variant: 'card',
     hasDetails: true,
+    purpose: 'Sends a message to the contact.',
+    deletable: true,
     creatable: true,
     hasInput: true,
     canHaveChildren: true,
@@ -46,6 +53,8 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'message-square',
     variant: 'card',
     hasDetails: true,
+    purpose: 'Leaves a note on the conversation for your team.',
+    deletable: true,
     creatable: true,
     hasInput: true,
     canHaveChildren: true,
@@ -57,6 +66,8 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'calendar-clock',
     variant: 'card',
     hasDetails: true,
+    purpose: 'Branches the flow on date and time conditions.',
+    deletable: true,
     creatable: true,
     hasInput: true,
     canHaveChildren: false,
@@ -68,6 +79,8 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'check',
     variant: 'pill',
     hasDetails: false,
+    purpose: 'The path taken when the condition is met.',
+    deletable: false,
     creatable: false,
     hasInput: true,
     canHaveChildren: true,
@@ -79,6 +92,8 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'x',
     variant: 'pill',
     hasDetails: false,
+    purpose: 'The path taken when the condition is not met.',
+    deletable: false,
     creatable: false,
     hasInput: true,
     canHaveChildren: true,
@@ -90,6 +105,8 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'circle-help',
     variant: 'card',
     hasDetails: false,
+    purpose: 'This kind of step is not supported yet.',
+    deletable: false,
     creatable: false,
     hasInput: true,
     canHaveChildren: true,

@@ -1,7 +1,10 @@
+import { toDraft } from '@/utils/nodeEdit'
 import { buildNewNodes } from '@/utils/nodeFactory'
 import { generateNodeId } from '@/utils/nodeIds'
+import { getNodeKind } from '@/utils/nodeKind'
+import { getRemoval } from '@/utils/nodeRemoval'
 import { findPayloadError } from '@/utils/payloadValidation'
-import { getAllowedParents, validateCreateNode } from '@/utils/validation'
+import { getAllowedParents, validateCreateNode, validateNodeDraft } from '@/utils/validation'
 
 /** The payload was fetched but its content is unusable. Retrying can't fix that. */
 export class InvalidPayloadError extends Error {
@@ -84,4 +87,45 @@ export async function createNode(values, { nodes, delayMs = SIMULATED_LATENCY_MS
 
   await wait(delayMs)
   return created
+}
+
+/**
+ * Saves an edited node. Like `createNode`, it checks the values again before accepting them: the
+ * form is one caller, not the only conceivable one, and the check is the same pure function.
+ *
+ * @param {import('@/utils/graph').FlowNode} node  the edited node, payload-shaped
+ * @param {{ nodes: import('@/utils/graph').FlowNode[], delayMs?: number }} context
+ * @returns {Promise<import('@/utils/graph').FlowNode>}
+ * @throws {NodeValidationError} when a field is invalid
+ */
+export async function updateNode(node, { nodes, delayMs = SIMULATED_LATENCY_MS }) {
+  if (!nodes.some((candidate) => candidate.id === node.id)) {
+    throw new Error('That step is no longer in the flow.')
+  }
+
+  const fieldErrors = validateNodeDraft(toDraft(node), getNodeKind(node))
+  if (Object.keys(fieldErrors).length) {
+    throw new NodeValidationError(fieldErrors)
+  }
+
+  await wait(delayMs)
+  return structuredClone(node)
+}
+
+/**
+ * Deletes a node. What that takes with it is decided by `getRemoval`, so the rule lives in one
+ * place and the store only applies the answer.
+ *
+ * @param {string} id
+ * @param {{ nodes: import('@/utils/graph').FlowNode[], delayMs?: number }} context
+ * @returns {Promise<import('@/utils/nodeRemoval').Removal>}
+ */
+export async function deleteNode(id, { nodes, delayMs = SIMULATED_LATENCY_MS }) {
+  const removal = getRemoval(nodes, id)
+  if (!removal) {
+    throw new Error("That step can't be deleted.")
+  }
+
+  await wait(delayMs)
+  return removal
 }

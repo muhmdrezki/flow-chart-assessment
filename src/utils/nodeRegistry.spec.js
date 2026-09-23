@@ -29,6 +29,8 @@ describe('NODE_REGISTRY', () => {
       label: expect.any(String),
       icon: expect.any(String),
       variant: expect.stringMatching(/^(card|pill)$/),
+      purpose: expect.any(String),
+      deletable: expect.any(Boolean),
       hasDetails: expect.any(Boolean),
       hasInput: expect.any(Boolean),
       canHaveChildren: expect.any(Boolean),
@@ -36,6 +38,15 @@ describe('NODE_REGISTRY', () => {
       accent: expect.stringMatching(/^--color-kind-/),
       size: { width: expect.any(Number), height: expect.any(Number) },
     })
+  })
+
+  it('lets a step be deleted, but never the trigger or a branch pill', () => {
+    const deletable = Object.entries(NODE_REGISTRY)
+      .filter(([, config]) => config.deletable)
+      .map(([kind]) => kind)
+
+    // A flow has to start somewhere, and a branch belongs to the condition that made it.
+    expect(deletable.sort()).toEqual(['addComment', 'businessHours', 'sendMessage'])
   })
 
   it('opens a drawer for everything except the display-only kinds', () => {
