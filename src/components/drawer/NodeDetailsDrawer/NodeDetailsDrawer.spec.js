@@ -1,9 +1,15 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import payload from '../../../../public/payload.json'
+import NodeEditForm from '@/components/forms/NodeEditForm/NodeEditForm.vue'
+import BaseButton from '@/components/ui/BaseButton/BaseButton.vue'
 import BaseDrawer from '@/components/ui/BaseDrawer/BaseDrawer.vue'
+import { useUpdateNode } from '@/composables/useUpdateNode'
 import { normalizePayload } from '@/utils/graph'
 import NodeDetailsDrawer from './NodeDetailsDrawer.vue'
+
+vi.mock('@/composables/useUpdateNode', () => ({ useUpdateNode: vi.fn() }))
 
 const nodes = normalizePayload(payload)
 const node = (id) => nodes.find((candidate) => candidate.id === String(id))
@@ -13,14 +19,41 @@ const query = (selector) => document.body.querySelector(selector)
 const queryAll = (selector) => [...document.body.querySelectorAll(selector)]
 const panel = () => query('[role="dialog"]')
 
-const mountDrawer = (props = {}) =>
-  mount(NodeDetailsDrawer, { props: { node: node('b6a0c1'), ...props }, attachTo: document.body })
-
-afterEach(() => {
-  document.body.innerHTML = ''
-})
+const AWAY_MESSAGE = 'b6a0c1'
+const BUSINESS_HOURS = 'd09c08'
 
 describe('NodeDetailsDrawer', () => {
+  let mutation
+
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    mutation = {
+      save: vi.fn((saved) => Promise.resolve(saved)),
+      isPending: ref(false),
+      error: ref(null),
+      fieldErrors: ref({}),
+      reset: vi.fn(),
+    }
+    useUpdateNode.mockReturnValue(mutation)
+  })
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  const mountDrawer = (props = {}) =>
+    mount(NodeDetailsDrawer, {
+      props: { node: node(AWAY_MESSAGE), ...props },
+      attachTo: document.body,
+    })
+
+  const form = (wrapper) => wrapper.findComponent(NodeEditForm)
+  const button = (wrapper, text) =>
+    wrapper.findAllComponents(BaseButton).find((candidate) => candidate.text().includes(text))
+  /** Types into the form the way the user would: a new draft, replacing one field. */
+  const edit = (wrapper, patch) =>
+    form(wrapper).vm.$emit('update:modelValue', { ...form(wrapper).props('modelValue'), ...patch })
+
   it('is closed when no node is selected', () => {
     mountDrawer({ node: null })
     expect(panel()).toBeNull()
@@ -30,11 +63,11 @@ describe('NodeDetailsDrawer', () => {
     expect(mountDrawer().findComponent(BaseDrawer).props('modal')).toBe(false)
   })
 
-  it('is headed by the node’s name and its kind', () => {
+  it('is headed by the node’s name and what the step does', () => {
     mountDrawer()
 
     expect(query('h2').textContent).toBe('Away Message')
-    expect(query('header p').textContent).toBe('Send Message')
+    expect(query('header p').textContent).toBe('Sends a message to the contact.')
   })
 
   it('calls a node without a name after its kind, as the canvas does', () => {
@@ -42,114 +75,160 @@ describe('NodeDetailsDrawer', () => {
     expect(query('h2').textContent).toBe('Trigger')
   })
 
-  it('does not print the kind twice when the node is named after it', () => {
-    mountDrawer({ node: node('d09c08') })
+  it('opens the form on the node’s own values', () => {
+    const draft = form(mountDrawer()).props('modelValue')
 
-    expect(query('h2').textContent).toBe('Business Hours')
-    expect(query('header p')).toBeNull()
+    expect(draft.title).toBe('Away Message')
+    expect(draft.parts[0].text).toContain('Sorry, we are currently away')
   })
 
-  describe('what it shows', () => {
-    const rows = () => queryAll('dt').map((term) => term.textContent)
-    const valueOf = (label) => {
-      const index = rows().indexOf(label)
-      return queryAll('dd')[index]
-    }
+  describe('saving', () => {
+    it('offers nothing to save until something changes', async () => {
+      const wrapper = mountDrawer()
+      expect(button(wrapper, 'Save changes').props('disabled')).toBe(true)
 
-    it('shows a trigger’s event and setting, read-only', () => {
-      mountDrawer({ node: node(1) })
+      await edit(wrapper, { title: 'Renamed' })
 
-      expect(rows()).toEqual(['Event', 'Once per contact'])
-      expect(valueOf('Event').textContent.trim()).toBe('Conversation Opened')
-      expect(valueOf('Once per contact').textContent.trim()).toBe('No')
-      expect(query('input')).toBeNull()
+      expect(button(wrapper, 'Save changes').props('disabled')).toBe(false)
     })
 
-    it('keeps the line breaks a message was written with', () => {
-      mountDrawer({ node: node('b0653a') })
+    it('sends the edited node, in the payload’s shape', async () => {
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Renamed' })
 
-      expect(valueOf('Message').classList.contains('whitespace-pre-line')).toBe(true)
-      expect(valueOf('Message').textContent.trim()).toBe('Hello there\n\nwelcome to the chat!')
+      await button(wrapper, 'Save changes').trigger('click')
+
+      expect(mutation.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: AWAY_MESSAGE, name: 'Renamed' }),
+      )
     })
 
-    it('links an attachment by its file name and previews it when it is an image', () => {
-      mountDrawer({ node: node('b0653a') })
-      const link = query('a')
+    it('checks the values first, and does not send an invalid one', async () => {
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: '   ' })
 
-      expect(link.textContent.trim()).toBe('354.jpg')
-      expect(link.getAttribute('href')).toContain('picsum.photos')
-      expect(link.getAttribute('rel')).toBe('noopener')
-      expect(query('img').getAttribute('src')).toBe(link.getAttribute('href'))
+      await button(wrapper, 'Save changes').trigger('click')
+
+      expect(mutation.save).not.toHaveBeenCalled()
+      expect(form(wrapper).props('errors').title).toBe('Title is required')
     })
 
-    it('does not preview an attachment that is not an image', () => {
-      mountDrawer({
-        node: {
-          id: 'x',
-          type: 'sendMessage',
-          data: { payload: [{ type: 'attachment', attachment: 'https://files.test/terms.pdf' }] },
-        },
-      })
+    it('has nothing left to save once it succeeded', async () => {
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Renamed' })
 
-      expect(query('a').textContent.trim()).toBe('terms.pdf')
-      expect(query('img')).toBeNull()
+      await button(wrapper, 'Save changes').trigger('click')
+      await vi.waitFor(() => expect(button(wrapper, 'Save changes').props('disabled')).toBe(true))
     })
 
-    it('shows business hours as the whole week, closed days included', () => {
-      mountDrawer({ node: node('d09c08') })
+    it('keeps what the user typed when the save fails', async () => {
+      mutation.save.mockRejectedValue(new Error('Nope'))
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Renamed' })
 
-      const [monday] = queryAll('li')
+      await button(wrapper, 'Save changes').trigger('click')
+      await vi.waitFor(() => expect(mutation.save).toHaveBeenCalled())
 
-      expect(rows()).toEqual(['Time zone', 'Opening hours'])
-      expect(queryAll('li')).toHaveLength(7)
-      expect(monday.textContent).toContain('Monday')
-      expect(monday.textContent).toContain('09:00 – 17:00')
+      expect(form(wrapper).props('modelValue').title).toBe('Renamed')
+      expect(wrapper.emitted('close')).toBeUndefined()
     })
 
-    it('says a day with only half its hours is closed, rather than trailing a dash', () => {
-      mountDrawer({
-        node: {
-          id: 'x',
-          type: 'dateTime',
-          data: { action: 'businessHours', times: [{ day: 'mon', startTime: '09:00' }] },
-        },
-      })
+    it('passes the server’s field messages to the form', () => {
+      mutation.fieldErrors.value = { title: 'Title is already used' }
 
-      expect(queryAll('li')[0].textContent).toContain('Closed')
-      expect(queryAll('li')[0].textContent).not.toContain('09:00')
+      expect(form(mountDrawer()).props('errors').title).toBe('Title is already used')
     })
 
-    it('says a day is closed when there are no hours for it', () => {
-      mountDrawer({
-        node: {
-          id: 'x',
-          type: 'dateTime',
-          data: {
-            action: 'businessHours',
-            times: [{ day: 'mon', startTime: '09:00', endTime: '17:00' }],
-          },
-        },
-      })
+    it('shows one message for a failure that is not about a field', () => {
+      mutation.error.value = new Error('Network down')
+      mountDrawer()
 
-      expect(queryAll('li').at(-1).textContent).toContain('Closed')
+      expect(query('[role="alert"]').textContent.trim()).toBe('Could not save the step. Try again.')
     })
 
-    it('says so when a step has nothing to show yet', () => {
-      mountDrawer({ node: { id: 'x', type: 'sendMessage', data: { payload: [] } } })
+    it('says it is working, and cannot be dismissed mid-save', async () => {
+      mutation.isPending.value = true
+      const wrapper = mountDrawer()
+      await wrapper.vm.$nextTick()
 
-      expect(panel().textContent).toContain('This step has nothing to show yet')
-      // A description list takes only terms and definitions, so the message sits outside it.
-      expect(query('dl').textContent.trim()).toBe('')
+      expect(button(wrapper, 'Save changes').props('loading')).toBe(true)
+      expect(form(wrapper).props('disabled')).toBe(true)
+      expect(wrapper.findComponent(BaseDrawer).props('dismissible')).toBe(false)
     })
   })
 
-  it('swaps its contents when another node is selected, without closing', async () => {
-    const wrapper = mountDrawer()
+  describe('closing', () => {
+    it('closes at once when nothing was changed', async () => {
+      const wrapper = mountDrawer()
 
-    await wrapper.setProps({ node: node('e879e4') })
+      wrapper.findComponent(BaseDrawer).vm.$emit('close')
+      await wrapper.vm.$nextTick()
 
-    expect(query('h2').textContent).toBe('Add Comment #1')
-    expect(panel()).not.toBeNull()
+      expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
+    it('asks first when there are unsaved changes', async () => {
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Renamed' })
+
+      wrapper.findComponent(BaseDrawer).vm.$emit('close')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.emitted('close')).toBeUndefined()
+      expect(panel().textContent).toContain('Discard your changes?')
+    })
+
+    it('closes when the user confirms', async () => {
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Renamed' })
+      wrapper.findComponent(BaseDrawer).vm.$emit('close')
+      await wrapper.vm.$nextTick()
+
+      await button(wrapper, 'Discard').trigger('click')
+
+      expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
+    it('goes back to editing when the user changes their mind', async () => {
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Renamed' })
+      wrapper.findComponent(BaseDrawer).vm.$emit('close')
+      await wrapper.vm.$nextTick()
+
+      await button(wrapper, 'Keep editing').trigger('click')
+
+      expect(wrapper.emitted('close')).toBeUndefined()
+      expect(form(wrapper).props('modelValue').title).toBe('Renamed')
+    })
+  })
+
+  describe('another node', () => {
+    it('swaps its contents without closing', async () => {
+      const wrapper = mountDrawer()
+
+      await wrapper.setProps({ node: node(BUSINESS_HOURS) })
+
+      expect(query('h2').textContent).toBe('Business Hours')
+      expect(panel()).not.toBeNull()
+    })
+
+    it('starts again from the new node’s values', async () => {
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Renamed' })
+
+      await wrapper.setProps({ node: node(BUSINESS_HOURS) })
+
+      expect(form(wrapper).props('modelValue').title).toBe('Business Hours')
+      expect(button(wrapper, 'Save changes').props('disabled')).toBe(true)
+    })
+
+    it('shows the week for a business-hours node', async () => {
+      const wrapper = mountDrawer()
+
+      await wrapper.setProps({ node: node(BUSINESS_HOURS) })
+
+      expect(queryAll('input[type="time"]')).toHaveLength(14)
+    })
   })
 
   it('keeps showing the node it had while it slides out', async () => {
@@ -159,13 +238,5 @@ describe('NodeDetailsDrawer', () => {
 
     // The panel is on its way out, so emptying it now would blank the content mid-animation.
     expect(wrapper.findComponent(BaseDrawer).props('title')).toBe('Away Message')
-  })
-
-  it('asks to be closed when the panel does', () => {
-    const wrapper = mountDrawer()
-
-    wrapper.findComponent(BaseDrawer).vm.$emit('close')
-
-    expect(wrapper.emitted('close')).toHaveLength(1)
   })
 })

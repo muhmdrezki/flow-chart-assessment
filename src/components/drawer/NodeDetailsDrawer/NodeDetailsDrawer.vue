@@ -1,9 +1,14 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import NodeEditForm from '@/components/forms/NodeEditForm/NodeEditForm.vue'
+import BaseButton from '@/components/ui/BaseButton/BaseButton.vue'
 import BaseDrawer from '@/components/ui/BaseDrawer/BaseDrawer.vue'
+import { useUpdateNode } from '@/composables/useUpdateNode'
 import { getNodeTitle } from '@/utils/nodeDescription'
-import { getNodeProperties } from '@/utils/nodeProperties'
+import { fromDraft, isSameDraft, toDraft } from '@/utils/nodeEdit'
+import { getNodeKind } from '@/utils/nodeKind'
 import { getNodeConfig } from '@/utils/nodeRegistry'
+import { validateNodeDraft } from '@/utils/validation'
 
 const props = defineProps({
   /** The node the URL names, or null when nothing is selected. */
@@ -12,91 +17,113 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
+const { save, isPending, error, fieldErrors, reset } = useUpdateNode()
+
 /*
  * The panel takes 200ms to slide out, so it is still on screen after the selection is gone. It
  * keeps showing the node it had until a new one arrives, rather than emptying mid-animation.
  */
 const shown = ref(props.node)
+
+/** What the user is editing, and what they started from, so a save can be offered only if needed. */
+const draft = ref(toDraft(props.node))
+const saved = ref(toDraft(props.node))
+const localErrors = ref({})
+const isConfirmingDiscard = ref(false)
+
+function load(node) {
+  draft.value = toDraft(node)
+  saved.value = toDraft(node)
+  localErrors.value = {}
+  isConfirmingDiscard.value = false
+  reset()
+}
+
 watch(
   () => props.node,
   (node) => {
-    if (node) shown.value = node
+    if (!node) return
+    shown.value = node
+    /*
+     * Switching nodes starts again from the new one. Unsaved changes are lost, and deliberately
+     * not guarded: this panel leaves the canvas clickable on purpose (Spec 04, decision 4b), and
+     * the only way to ask first would be to block the clicks that make that true.
+     */
+    load(node)
   },
 )
 
 const config = computed(() => (shown.value ? getNodeConfig(shown.value) : null))
+const kind = computed(() => (shown.value ? getNodeKind(shown.value) : ''))
 const title = computed(() => (shown.value ? getNodeTitle(shown.value) : ''))
-const properties = computed(() => getNodeProperties(shown.value))
+const isDirty = computed(() => !isSameDraft(draft.value, saved.value))
 
-/*
- * The kind, under the node's name. A node that was never renamed is already called after its kind
- * ("Business Hours"), and the payload's own node is one of them, so the line is dropped rather than
- * printed twice.
- */
-const kindLabel = computed(() => (config.value?.label === title.value ? '' : config.value?.label))
+/** What the form shows under its fields: what we checked, then what the server sent back. */
+const errors = computed(() => ({ ...localErrors.value, ...fieldErrors.value }))
+
+const formError = computed(() =>
+  error.value && !Object.keys(fieldErrors.value).length
+    ? 'Could not save the step. Try again.'
+    : '',
+)
+
+async function onSave() {
+  localErrors.value = validateNodeDraft(draft.value, kind.value)
+  if (Object.keys(localErrors.value).length) return
+
+  try {
+    const node = await save(fromDraft(shown.value, draft.value))
+    saved.value = toDraft(node)
+  } catch {
+    // The mutation holds the reason; the drawer stays open so the user keeps what they typed.
+  }
+}
+
+/** Closing throws away unsaved work, so it says so first. */
+function requestClose() {
+  if (isDirty.value && !isConfirmingDiscard.value) {
+    isConfirmingDiscard.value = true
+    return
+  }
+  emit('close')
+}
 </script>
 
 <template>
   <BaseDrawer
     :open="Boolean(node)"
     :title="title"
-    :description="kindLabel"
+    :description="config?.purpose"
     :icon="config?.icon"
     :modal="false"
-    @close="emit('close')"
+    :dismissible="!isPending"
+    @close="requestClose"
   >
-    <dl class="space-y-5">
-      <div v-for="(property, index) in properties" :key="`${property.kind}-${index}`">
-        <dt class="text-xs font-semibold text-slate-500">{{ property.label }}</dt>
+    <NodeEditForm
+      v-if="shown"
+      v-model="draft"
+      :kind="kind"
+      :event="shown.data?.type"
+      :errors="errors"
+      :disabled="isPending"
+    />
 
-        <!-- Message text keeps the line breaks it was written with. -->
-        <dd v-if="property.kind === 'text'" class="mt-1 text-sm whitespace-pre-line text-slate-800">
-          {{ property.value }}
-        </dd>
+    <template #footer>
+      <p v-if="formError" role="alert" class="mr-auto self-center text-xs text-red-600">
+        {{ formError }}
+      </p>
 
-        <dd v-else-if="property.kind === 'flag'" class="mt-1 text-sm text-slate-800">
-          {{ property.value ? 'Yes' : 'No' }}
-        </dd>
+      <template v-if="isConfirmingDiscard">
+        <p class="mr-auto self-center text-xs text-slate-600">Discard your changes?</p>
+        <BaseButton variant="secondary" size="sm" @click="isConfirmingDiscard = false">
+          Keep editing
+        </BaseButton>
+        <BaseButton variant="danger" size="sm" @click="emit('close')">Discard</BaseButton>
+      </template>
 
-        <dd v-else-if="property.kind === 'attachment'" class="mt-1">
-          <a
-            :href="property.url"
-            target="_blank"
-            rel="noopener"
-            class="text-sm font-medium text-(--color-accent) underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent)/40"
-          >
-            {{ property.name }}
-          </a>
-          <img
-            v-if="property.isImage"
-            :src="property.url"
-            :alt="property.name"
-            loading="lazy"
-            class="mt-2 max-h-44 w-full rounded-lg border border-slate-200 object-cover"
-          />
-        </dd>
-
-        <dd v-else-if="property.kind === 'schedule'" class="mt-1.5">
-          <ul class="divide-y divide-slate-100 rounded-lg border border-slate-200">
-            <li
-              v-for="day in property.days"
-              :key="day.day"
-              class="flex items-center justify-between px-3 py-2 text-sm"
-            >
-              <span class="text-slate-600">{{ day.label }}</span>
-              <span v-if="day.startTime" class="font-medium text-slate-800">
-                {{ day.startTime }} – {{ day.endTime }}
-              </span>
-              <span v-else class="text-slate-400">Closed</span>
-            </li>
-          </ul>
-        </dd>
-      </div>
-    </dl>
-
-    <!-- Outside the list: a description list takes only terms and definitions. -->
-    <p v-if="!properties.length" class="text-sm text-slate-500">
-      This step has nothing to show yet.
-    </p>
+      <BaseButton v-else :disabled="!isDirty" :loading="isPending" size="sm" @click="onSave">
+        Save changes
+      </BaseButton>
+    </template>
   </BaseDrawer>
 </template>
