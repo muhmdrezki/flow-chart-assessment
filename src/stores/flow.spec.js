@@ -687,6 +687,25 @@ describe('useFlowStore', () => {
       expect(positionOf('1')).toEqual({ x: 9, y: 9 })
     })
 
+    it.each([
+      ['a move of nothing', () => store.updateNodePositions([])],
+      [
+        'a move of steps that are not there',
+        () => store.updateNodePositions([{ id: 'ghost', position: { x: 1, y: 2 } }]),
+      ],
+      ['a delete of nothing', () => store.removeNodes({ removeIds: [] })],
+    ])('does not remember %s, which would undo to no effect', (_, change) => {
+      store.removeNodes({ removeIds: ['e879e4'] })
+      store.undo()
+      expect(store.canRedo).toBe(true)
+
+      change()
+
+      expect(store.undoLabel).toBe('')
+      // And the redo branch survives, since nothing was actually done.
+      expect(store.canRedo).toBe(true)
+    })
+
     it('starts clean when a flow is loaded', () => {
       create()
       setActivePinia(createPinia())

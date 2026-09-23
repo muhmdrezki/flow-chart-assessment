@@ -1,6 +1,6 @@
 # Spec 06: Undo and Redo
 
-Status: **Draft — awaiting confirmation** (decisions 6a–6i in §5).
+Status: **Built 2026-09-23** (decisions 6a–6i confirmed).
 Brief: _"Nice to have: undo/redo functionality for node movements and edits."_
 
 ---
@@ -251,19 +251,43 @@ Two icon buttons in the header, left of **Create New Node**:
 
 ---
 
-## 4. Acceptance criteria
+### 3.7 Found while building, and what the review caught
 
-- [ ] Creating, editing, deleting and dragging can each be undone and redone.
-- [ ] One user action is one undo — a condition and its branches go back together.
-- [ ] The buttons say what they will undo, and are disabled when there is nothing to.
-- [ ] Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z work on the canvas and are ignored while typing in a field.
-- [ ] Undoing a create whose node is open in the drawer closes the drawer rather than stranding it.
-- [ ] History does not survive a reload, and the README says why.
-- [ ] Lint clean, tests green, build succeeds.
+- **The store was quietly keeping Vue proxies in its own node list.** `removeNodes` rebuilt the list
+  by mapping over the reactive array, and `replaceNode` stored whatever object the caller had spread
+  — which, for anything read out of the store, carries a reactive `data`. None of it mattered until
+  something tried to **copy** the store, which is exactly what a snapshot does. The snapshot copies
+  through JSON now, which works whatever it is handed, and both sources are fixed as well.
+- **Undo replaced every node object, which reset the open drawer.** The drawer watches its node and
+  starts again when it changes, which was right when that only happened on a new selection. After
+  undo it happened for a change to some other part of the flow entirely, silently throwing away
+  unsaved typing. It now starts again only for a different node, or when there is nothing unsaved.
+- **The buttons said "Nothing to undo" while a save was running.** Disabling them mid-write is
+  right; saying there is nothing to take back is not, and it is the one thing a screen reader would
+  read out. The label now follows the history, the disabled state follows the write.
+- **`class="px-2"` on the icon button did nothing.** It landed on the same element as `BaseButton`'s
+  own `px-3`, and the later rule in the stylesheet wins — so the icon sat in padding meant for
+  words. `BaseButton` has square sizes now.
+- **A move of nothing was remembered.** `updateNodePositions([])` pushed an entry, so Undo looked
+  like it would do something and didn't — and it threw the redo branch away on the way.
+- **The view's tests leaked key listeners**: each mounted view kept answering keys for the rest of
+  the file.
 
 ---
 
-## 5. Decisions (to confirm)
+## 4. Acceptance criteria
+
+- [x] Creating, editing, deleting and dragging can each be undone and redone.
+- [x] One user action is one undo — a condition and its branches go back together.
+- [x] The buttons say what they will undo, and are disabled when there is nothing to.
+- [x] Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z work on the canvas and are ignored while typing in a field.
+- [x] Undoing a create whose node is open in the drawer closes the drawer rather than stranding it.
+- [x] History does not survive a reload, and the README says why.
+- [x] Lint clean, tests green, build succeeds.
+
+---
+
+## 5. Decisions (confirmed 2026-09-23)
 
 | #   | Question                | Proposal                                                                                   | Alternative(s)                           |
 | --- | ----------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------- |

@@ -11,6 +11,10 @@ const VARIANT_CLASSES = {
 const SIZE_CLASSES = {
   sm: 'h-8 px-3 text-sm',
   md: 'h-10 px-4 text-sm',
+  // Square, for a button that holds an icon and nothing else. A caller can't just pass narrower
+  // padding: it would land on the same element as these, and the later rule in the stylesheet wins.
+  'icon-sm': 'size-8',
+  icon: 'size-10',
 }
 </script>
 

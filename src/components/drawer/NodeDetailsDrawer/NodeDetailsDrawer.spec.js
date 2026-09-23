@@ -249,6 +249,25 @@ describe('NodeDetailsDrawer', () => {
       expect(panel()).not.toBeNull()
     })
 
+    it('keeps unsaved typing when the same node simply arrives as a new object', async () => {
+      // Undo replaces every node in the flow, so this fires for changes that have nothing to do
+      // with what is open. Starting again then would throw away typing nobody asked to lose.
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: 'Half typed' })
+
+      await wrapper.setProps({ node: { ...node(AWAY_MESSAGE) } })
+
+      expect(form(wrapper).props('modelValue').title).toBe('Half typed')
+    })
+
+    it('takes the new values when there is nothing unsaved to lose', async () => {
+      const wrapper = mountDrawer()
+
+      await wrapper.setProps({ node: { ...node(AWAY_MESSAGE), name: 'Renamed elsewhere' } })
+
+      expect(form(wrapper).props('modelValue').title).toBe('Renamed elsewhere')
+    })
+
     it('starts again from the new node’s values', async () => {
       const wrapper = mountDrawer()
       await edit(wrapper, { title: 'Renamed' })

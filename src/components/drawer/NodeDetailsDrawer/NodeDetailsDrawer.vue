@@ -51,13 +51,21 @@ watch(
   () => props.node,
   (node) => {
     if (!node) return
+
+    const isAnotherNode = node.id !== shown.value?.id
     shown.value = node
+
     /*
      * Switching nodes starts again from the new one. Unsaved changes are lost, and deliberately
      * not guarded: this panel leaves the canvas clickable on purpose (Spec 04, decision 4b), and
      * the only way to ask first would be to block the clicks that make that true.
+     *
+     * The same node arriving as a different object is not that. Undo replaces every node in the
+     * flow, so this fires for a change that had nothing to do with what is open — and starting
+     * again then would throw away typing the user never asked to lose. Its new values are taken
+     * only when there is nothing unsaved to overwrite.
      */
-    load(node)
+    if (isAnotherNode || !isDirty.value) load(node)
   },
 )
 
