@@ -6,7 +6,9 @@ import {
   CirclePlus,
   MessageSquare,
   Plus,
+  Redo2,
   Send,
+  Undo2,
   X,
   Zap,
 } from '@lucide/vue'
@@ -20,7 +22,9 @@ const ICONS = {
   'circle-plus': CirclePlus,
   'message-square': MessageSquare,
   plus: Plus,
+  redo: Redo2,
   send: Send,
+  undo: Undo2,
   x: X,
   zap: Zap,
 }
