@@ -6,8 +6,15 @@ import { Controls } from '@vue-flow/controls'
 import ConnectorNode from '@/components/nodes/ConnectorNode/ConnectorNode.vue'
 import NodeCard from '@/components/nodes/NodeCard/NodeCard.vue'
 import { useFlowStore } from '@/stores/flow'
-import { getNodeSize } from '@/utils/nodeRegistry'
+import { getNodeSize, hasDetails } from '@/utils/nodeRegistry'
 import { toVueFlowEdges, toVueFlowNodes } from '@/utils/vueFlowAdapter'
+
+defineProps({
+  /** The node the URL names, drawn with a ring. Selection lives in the route, not in Vue Flow. */
+  selectedId: { type: String, default: null },
+})
+
+const emit = defineEmits(['select', 'deselect'])
 
 const store = useFlowStore()
 
@@ -19,7 +26,7 @@ const CENTRE_DURATION_MS = 400
 
 /**
  * Moves the viewport to a node, keeping the current zoom. Used after creating one, so the user sees
- * where it landed.
+ * where it landed. Opening the drawer deliberately doesn't move the view (Spec 04, decision 4d).
  * @param {string} id
  */
 async function focusNode(id) {
@@ -40,24 +47,43 @@ defineExpose({ focusNode })
 const nodes = computed(() => toVueFlowNodes(store.nodes, store.nodeDisplayById))
 const edges = computed(() => toVueFlowEdges(store.edges, store.nodeById))
 
-// Vue Flow moves nodes itself while dragging; the store is updated once, when the drag ends.
+/*
+ * Vue Flow moves nodes itself while dragging; the store is updated once, when the drag ends, and
+ * only for nodes that really moved. Dragging doesn't open a drawer by accident: d3-drag swallows
+ * the click that ends a drag, so `node-click` only arrives when the pointer stayed put.
+ */
 function onNodeDragStop({ nodes: draggedNodes }) {
-  store.updateNodePositions(draggedNodes.map(({ id, position }) => ({ id, position })))
+  const moved = draggedNodes.filter(({ id, position }) => {
+    const current = store.nodeById.get(id)?.position
+    return current && (current.x !== position.x || current.y !== position.y)
+  })
+  if (moved.length) store.updateNodePositions(moved.map(({ id, position }) => ({ id, position })))
+}
+
+function onNodeClick({ node }) {
+  if (hasDetails(store.nodeById.get(node.id))) emit('select', node.id)
 }
 </script>
 
 <template>
-  <!-- Connecting and key-deleting are off: graph changes go through the store's mutations only. -->
+  <!-- Connecting and key-deleting are off: graph changes go through the store's mutations only.
+       Vue Flow's own keyboard handling is off too, because each node card takes its own keys.
+       Left on, it would also move a selected node with the arrow keys, writing positions Vue Flow
+       keeps to itself and the store never hears about. -->
   <VueFlow
     :nodes="nodes"
     :edges="edges"
     fit-view-on-init
     :nodes-connectable="false"
+    :nodes-focusable="false"
+    disable-keyboard-a11y
     :delete-key-code="null"
     :min-zoom="0.2"
     :max-zoom="2"
     class="h-full w-full"
+    @node-click="onNodeClick"
     @node-drag-stop="onNodeDragStop"
+    @pane-click="emit('deselect')"
   >
     <!--
       One slot per node kind: Vue Flow renders the slot named "node-<type>" for each node and
@@ -65,28 +91,53 @@ function onNodeDragStop({ nodes: draggedNodes }) {
     -->
 
     <!-- Cards -->
-    <template #node-trigger="{ type, data, selected }">
-      <NodeCard :type="type" :data="data" :selected="selected" />
+    <template #node-trigger="{ id, type, data }">
+      <NodeCard
+        :type="type"
+        :data="data"
+        :selected="id === selectedId"
+        @activate="emit('select', id)"
+      />
     </template>
-    <template #node-sendMessage="{ type, data, selected }">
-      <NodeCard :type="type" :data="data" :selected="selected" />
+    <template #node-sendMessage="{ id, type, data }">
+      <NodeCard
+        :type="type"
+        :data="data"
+        :selected="id === selectedId"
+        @activate="emit('select', id)"
+      />
     </template>
-    <template #node-addComment="{ type, data, selected }">
-      <NodeCard :type="type" :data="data" :selected="selected" />
+    <template #node-addComment="{ id, type, data }">
+      <NodeCard
+        :type="type"
+        :data="data"
+        :selected="id === selectedId"
+        @activate="emit('select', id)"
+      />
     </template>
-    <template #node-businessHours="{ type, data, selected }">
-      <NodeCard :type="type" :data="data" :selected="selected" />
+    <template #node-businessHours="{ id, type, data }">
+      <NodeCard
+        :type="type"
+        :data="data"
+        :selected="id === selectedId"
+        @activate="emit('select', id)"
+      />
     </template>
-    <template #node-unknown="{ type, data, selected }">
-      <NodeCard :type="type" :data="data" :selected="selected" />
+    <template #node-unknown="{ id, type, data }">
+      <NodeCard
+        :type="type"
+        :data="data"
+        :selected="id === selectedId"
+        @activate="emit('select', id)"
+      />
     </template>
 
     <!-- Branch pills -->
-    <template #node-success="{ type, data, selected }">
-      <ConnectorNode :type="type" :data="data" :selected="selected" />
+    <template #node-success="{ type, data }">
+      <ConnectorNode :type="type" :data="data" />
     </template>
-    <template #node-failure="{ type, data, selected }">
-      <ConnectorNode :type="type" :data="data" :selected="selected" />
+    <template #node-failure="{ type, data }">
+      <ConnectorNode :type="type" :data="data" />
     </template>
 
     <Background :gap="16" />

@@ -22,9 +22,11 @@ vi.mock('@vue-flow/core', async () => {
       edges: Array,
       fitViewOnInit: Boolean,
       nodesConnectable: { type: Boolean, default: undefined },
+      nodesFocusable: { type: Boolean, default: undefined },
+      disableKeyboardA11y: { type: Boolean, default: false },
       deleteKeyCode: { type: [String, null], default: undefined },
     },
-    emits: ['nodeDragStop'],
+    emits: ['nodeClick', 'nodeDragStop', 'paneClick'],
     setup(props, { slots }) {
       return () => {
         stubs.slotNames = Object.keys(slots)
@@ -84,6 +86,8 @@ describe('FlowCanvas', () => {
 
   const vueFlow = (wrapper) => wrapper.findComponent(stubs.VueFlow)
   const rendered = (wrapper, id) => wrapper.find('[data-node-id="' + id + '"]')
+  const clickNode = (wrapper, id) => vueFlow(wrapper).vm.$emit('nodeClick', { node: { id } })
+  const dragTo = (wrapper, nodes) => vueFlow(wrapper).vm.$emit('nodeDragStop', { nodes })
 
   it('passes every store node to Vue Flow in its format', () => {
     const nodes = vueFlow(mount(FlowCanvas)).props('nodes')
@@ -132,7 +136,6 @@ describe('FlowCanvas', () => {
       expect(node.findComponent(ConnectorNode).props()).toEqual({
         type,
         data: store.nodeDisplayById.get(id),
-        selected: false,
       })
     })
 
@@ -146,9 +149,8 @@ describe('FlowCanvas', () => {
       }
     })
 
-    it('passes the selected state through to the component', () => {
-      stubs.selectedId = 'd09c08'
-      const wrapper = mount(FlowCanvas)
+    it('rings the node the URL names, not the one Vue Flow thinks is selected', () => {
+      const wrapper = mount(FlowCanvas, { props: { selectedId: 'd09c08' } })
 
       expect(rendered(wrapper, 'd09c08').findComponent(NodeCard).props('selected')).toBe(true)
       expect(rendered(wrapper, '1').findComponent(NodeCard).props('selected')).toBe(false)
@@ -190,19 +192,79 @@ describe('FlowCanvas', () => {
     expect(props.fitViewOnInit).toBe(true)
   })
 
+  it('lets each node card own the keyboard, rather than Vue Flow', () => {
+    const props = vueFlow(mount(FlowCanvas)).props()
+
+    expect(props.nodesFocusable).toBe(false)
+    // Otherwise the arrow keys would move a node inside Vue Flow, where the store never hears it.
+    expect(props.disableKeyboardA11y).toBe(true)
+  })
+
+  it('leaves a position the drag did not change alone', () => {
+    const wrapper = mount(FlowCanvas)
+    const { position } = store.nodeById.get('1')
+
+    dragTo(wrapper, [{ id: '1', position: { ...position } }])
+
+    expect(store.nodeById.get('1').position).toBe(position)
+  })
+
   it('saves every dragged node’s position to the store when a drag ends', () => {
     const wrapper = mount(FlowCanvas)
 
-    vueFlow(wrapper).vm.$emit('nodeDragStop', {
-      node: { id: '1' },
-      nodes: [
-        { id: '1', position: { x: 5, y: 6 }, selected: true },
-        { id: 'd09c08', position: { x: 7, y: 8 } },
-      ],
-    })
+    dragTo(wrapper, [
+      { id: '1', position: { x: 5, y: 6 }, selected: true },
+      { id: 'd09c08', position: { x: 7, y: 8 } },
+    ])
 
     expect(store.nodeById.get('1').position).toEqual({ x: 5, y: 6 })
     expect(store.nodeById.get('d09c08').position).toEqual({ x: 7, y: 8 })
+  })
+
+  describe('selecting a node', () => {
+    it('asks for the clicked node to be opened', () => {
+      const wrapper = mount(FlowCanvas)
+
+      clickNode(wrapper, 'b6a0c1')
+
+      expect(wrapper.emitted('select')).toEqual([['b6a0c1']])
+    })
+
+    it('ignores a branch pill, which has nothing to show', () => {
+      const wrapper = mount(FlowCanvas)
+
+      clickNode(wrapper, '161f52')
+
+      expect(wrapper.emitted('select')).toBeUndefined()
+    })
+
+    it('opens a node activated from the keyboard', () => {
+      const wrapper = mount(FlowCanvas)
+
+      rendered(wrapper, 'b6a0c1').findComponent(NodeCard).vm.$emit('activate')
+
+      expect(wrapper.emitted('select')).toEqual([['b6a0c1']])
+    })
+
+    it('asks to close when the empty canvas is clicked', () => {
+      const wrapper = mount(FlowCanvas)
+
+      vueFlow(wrapper).vm.$emit('paneClick')
+
+      expect(wrapper.emitted('deselect')).toHaveLength(1)
+    })
+
+    it('still opens a node that was pressed and let go without moving', () => {
+      // Vue Flow only reports a drag once the pointer has moved, and d3-drag swallows the click
+      // that ends a real drag, so a click here is always a click.
+      const wrapper = mount(FlowCanvas)
+      const { position } = store.nodeById.get('b6a0c1')
+
+      dragTo(wrapper, [{ id: 'b6a0c1', position: { ...position } }])
+      clickNode(wrapper, 'b6a0c1')
+
+      expect(wrapper.emitted('select')).toEqual([['b6a0c1']])
+    })
   })
 
   it('re-renders Vue Flow when the store changes', async () => {
