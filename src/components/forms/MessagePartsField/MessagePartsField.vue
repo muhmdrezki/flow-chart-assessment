@@ -5,7 +5,12 @@ import BaseIcon from '@/components/ui/BaseIcon/BaseIcon.vue'
 import BaseInput from '@/components/ui/BaseInput/BaseInput.vue'
 import BaseLightbox from '@/components/ui/BaseLightbox/BaseLightbox.vue'
 import BaseTextarea from '@/components/ui/BaseTextarea/BaseTextarea.vue'
-import { getAttachmentLabel, isImageAttachment, readAttachment } from '@/utils/attachments'
+import {
+  getAttachmentLabel,
+  isImageAttachment,
+  isUploaded,
+  readAttachment,
+} from '@/utils/attachments'
 import { createPart } from '@/utils/nodeEdit'
 
 /** A message is a list of parts, sent in the order they appear. */
@@ -25,11 +30,30 @@ const uploadError = ref('')
 const preview = ref(null)
 
 /**
- * An attachment shows as a tile once it has a value worth showing. It falls back to a text field
- * while it is empty — a link just added, with nothing typed into it yet — and when the value was
- * refused, so a mistyped address can be corrected rather than removed and added again.
+ * The link field the cursor is in, by the key of its part — one at a time, because focus is.
+ *
+ * A link is typed one character at a time, and one character can be enough to make it look like
+ * something worth previewing: `…/a.pdf` edited to `…/a.png` becomes a picture mid-word. Without
+ * this, the field would turn into a tile under the cursor and the rest of the address would go
+ * nowhere. A field being typed in stays a field until it is left.
  */
-const isTile = (part, index) => Boolean(part.attachment) && !props.errors[`parts.${index}`]
+const editingKey = ref(null)
+
+/**
+ * An attachment shows as a tile when there is something a tile can show: a picture, or a file the
+ * user uploaded, whose value is a `data:` URL that no one wants to read in a text field.
+ *
+ * A plain link stays a link. A box with a paperclip in it says less about it than the address does,
+ * and leaves it there to be corrected. It also stays a field while it is empty or being typed, and
+ * goes back to one when it was refused, so a mistyped address can be fixed rather than removed.
+ */
+function isTile(part, index) {
+  if (!part.attachment || props.errors[`parts.${index}`] || part.key === editingKey.value) {
+    return false
+  }
+
+  return isImageAttachment(part.attachment) || isUploaded(part.attachment)
+}
 
 /** Parts are replaced rather than edited in place, so the parent's v-model hears every change. */
 function setPart(index, patch) {
@@ -156,6 +180,8 @@ async function onFilesChosen(event) {
             :described-by="errors[`parts.${index}`] ? messageId(index) : undefined"
             :aria-label="`Attachment link ${index + 1}`"
             @update:model-value="setPart(index, { attachment: $event })"
+            @focus="editingKey = part.key"
+            @blur="editingKey = null"
           />
           <BaseButton
             variant="ghost"

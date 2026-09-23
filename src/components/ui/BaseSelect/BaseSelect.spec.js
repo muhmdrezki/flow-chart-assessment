@@ -63,4 +63,14 @@ describe('BaseSelect', () => {
   it('hides its drawn arrow from screen readers', () => {
     expect(mountSelect().find('svg').attributes('aria-hidden')).toBe('true')
   })
+
+  it('says when it was left, which the wrapper around it cannot', async () => {
+    // `blur` doesn't bubble, so a listener on this component would land on the arrow's wrapper and
+    // never hear a thing. A form that shows a message once a field is left needs it passed on.
+    const wrapper = mountSelect()
+
+    await wrapper.find('select').trigger('blur')
+
+    expect(wrapper.emitted('blur')).toHaveLength(1)
+  })
 })

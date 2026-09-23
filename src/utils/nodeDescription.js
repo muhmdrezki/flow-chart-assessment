@@ -74,7 +74,9 @@ const DESCRIBERS = {
     return plain(Object.hasOwn(TRIGGER_EVENT_LABELS, type) ? TRIGGER_EVENT_LABELS[type] : type)
   },
   [NODE_KIND.SEND_MESSAGE]: describeMessage,
-  [NODE_KIND.ADD_COMMENT]: (data) => plain(trimText(data.comment) || 'No comment'),
+  // Labelled like the message, and for the same reason: both are words someone wrote, and the
+  // label is what tells them apart at a glance. A dash stands in for a comment nobody has written.
+  [NODE_KIND.ADD_COMMENT]: (data) => ({ label: 'Comment', text: trimText(data.comment) || '-' }),
   // As in the mockup ("Business Hours - UTC"); the hours themselves are shown in the drawer.
   [NODE_KIND.BUSINESS_HOURS]: (data) =>
     plain(

@@ -45,6 +45,11 @@ describe('CreateNodeDrawer', () => {
   // The drawer teleports to the body, so its markup is looked up there.
   const alert = () => document.body.querySelector('[role="alert"]')
 
+  it('hands the form the place it was opened on, or none', () => {
+    expect(form(mountDrawer()).props('initialParentId')).toBeNull()
+    expect(form(mountDrawer({ afterId: 'b6a0c1' })).props('initialParentId')).toBe('b6a0c1')
+  })
+
   it('offers every step a node can be added after, by name', () => {
     expect(form(mountDrawer()).props('parents')).toEqual([
       { value: '1', label: 'Trigger' },

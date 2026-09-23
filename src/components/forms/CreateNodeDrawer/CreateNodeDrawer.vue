@@ -10,6 +10,8 @@ import { getAllowedParents } from '@/utils/validation'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
+  /** The step to add after, when the form was opened from a "+" on the canvas rather than a button. */
+  afterId: { type: String, default: null },
 })
 
 const emit = defineEmits(['close', 'created'])
@@ -71,13 +73,14 @@ async function onSubmit(values) {
       v-if="open"
       :id="FORM_ID"
       :parents="parents"
+      :initial-parent-id="afterId"
       :pending="isPending"
       :server-errors="fieldErrors"
       @submit="onSubmit"
     />
 
     <template #footer>
-      <p v-if="formError" class="mr-auto self-center text-sm text-red-600" role="alert">
+      <p v-if="formError" class="mr-auto min-w-0 self-center text-sm text-red-600" role="alert">
         {{ formError }}
       </p>
       <BaseButton variant="secondary" :disabled="isPending" @click="emit('close')">

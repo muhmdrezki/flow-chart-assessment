@@ -5,6 +5,10 @@ import payload from '../../public/payload.json'
 import { getNodeSize } from '@/utils/nodeRegistry'
 import { HISTORY_LIMIT, useFlowStore } from './flow'
 
+/** The sizes the layout spaces rows by, read from the registry so a card can be resized once. */
+const CARD = getNodeSize({ type: 'sendMessage' }).height
+const PILL = getNodeSize({ type: 'dateTimeConnector', data: { connectorType: 'success' } }).height
+
 describe('useFlowStore', () => {
   let store
 
@@ -115,7 +119,7 @@ describe('useFlowStore', () => {
         e879e4: {
           title: 'Add Comment #1',
           description: '',
-          summary: plain('User message during off hours'),
+          summary: { label: 'Comment', text: 'User message during off hours' },
         },
       })
     })
@@ -140,9 +144,9 @@ describe('useFlowStore', () => {
 
     it('spaces nodes by the height of their parent, so pills sit closer than cards', () => {
       const gap = 64
-      expect(y('d09c08') - y('1')).toBe(88 + gap)
-      expect(y('161f52') - y('d09c08')).toBe(88 + gap)
-      expect(y('b0653a') - y('161f52')).toBe(28 + gap)
+      expect(y('d09c08') - y('1')).toBe(CARD + gap)
+      expect(y('161f52') - y('d09c08')).toBe(CARD + gap)
+      expect(y('b0653a') - y('161f52')).toBe(PILL + gap)
     })
 
     it('centres the narrow pills under their parent card’s slot', () => {
@@ -189,11 +193,13 @@ describe('useFlowStore', () => {
 
     describe('after a step that has nothing following it', () => {
       it('adds the node one row below its parent, centred on it', () => {
-        // Welcome Message is a leaf at { x: -120, y: 396 }.
+        // Welcome Message is a leaf: nothing below it has to move out of the way.
+        const parent = { ...node('b0653a').position }
+
         addMessage('new01', 'b0653a')
 
         expect(store.nodes).toHaveLength(8)
-        expect(node('new01').position).toEqual({ x: -120, y: 396 + 88 + 64 })
+        expect(node('new01').position).toEqual({ x: parent.x, y: parent.y + CARD + 64 })
       })
 
       it('connects it to its parent', () => {
@@ -213,8 +219,13 @@ describe('useFlowStore', () => {
     })
 
     describe('between a step and what used to follow it', () => {
-      // Away Message (y 396) → Add Comment #1 (y 548).
-      beforeEach(() => addMessage('new01', 'b6a0c1'))
+      // Away Message → Add Comment #1, with the new step going in between them.
+      let before
+
+      beforeEach(() => {
+        before = { away: { ...node('b6a0c1').position }, welcome: { ...node('b0653a').position } }
+        addMessage('new01', 'b6a0c1')
+      })
 
       it('reattaches the following step under the new node', () => {
         expect(node('e879e4').parentId).toBe('new01')
@@ -231,13 +242,13 @@ describe('useFlowStore', () => {
       })
 
       it('moves the following step down so it does not overlap the new node', () => {
-        expect(node('new01').position.y).toBe(548)
-        expect(node('e879e4').position.y).toBe(548 + 88 + 64)
+        expect(node('new01').position.y).toBe(before.away.y + CARD + 64)
+        expect(node('e879e4').position.y).toBe(node('new01').position.y + CARD + 64)
       })
 
       it('leaves the rest of the flow where it was', () => {
-        expect(node('b6a0c1').position).toEqual({ x: 160, y: 396 })
-        expect(node('b0653a').position).toEqual({ x: -120, y: 396 })
+        expect(node('b6a0c1').position).toEqual(before.away)
+        expect(node('b0653a').position).toEqual(before.welcome)
       })
     })
 
@@ -259,7 +270,7 @@ describe('useFlowStore', () => {
 
       addMessage('new01', 'b6a0c1')
 
-      expect(node('e879e4').position.y).toBe(1148 + 88 + 64)
+      expect(node('e879e4').position.y).toBe(1148 + CARD + 64)
     })
 
     it('keeps positions the user has dragged, instead of laying the flow out again', () => {
@@ -314,7 +325,7 @@ describe('useFlowStore', () => {
       it('puts the branches side by side, one row below the condition', () => {
         addBusinessHours()
 
-        expect(node('ok01').position.y).toBe(node('bh01').position.y + 88 + 64)
+        expect(node('ok01').position.y).toBe(node('bh01').position.y + CARD + 64)
         expect(node('no01').position.y).toBe(node('ok01').position.y)
         expect(node('no01').position.x - node('ok01').position.x).toBe(280)
       })
@@ -397,7 +408,7 @@ describe('useFlowStore', () => {
       expect(store.nodeDisplayById.get('new01')).toEqual({
         title: 'Add Comment',
         description: '',
-        summary: { label: '', text: 'No comment' },
+        summary: { label: 'Comment', text: '-' },
       })
     })
   })

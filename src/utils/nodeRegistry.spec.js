@@ -100,7 +100,7 @@ describe('getNodeConfig', () => {
 
 describe('getNodeSize', () => {
   it('returns the kind’s size', () => {
-    expect(getNodeSize(nodes.sendMessage)).toEqual({ width: 240, height: 88 })
+    expect(getNodeSize(nodes.sendMessage)).toEqual({ width: 240, height: 124 })
     expect(getNodeSize(nodes.failure)).toEqual({ width: 96, height: 28 })
   })
 })

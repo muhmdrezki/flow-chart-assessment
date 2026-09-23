@@ -1,6 +1,13 @@
 <script setup>
 const model = defineModel({ type: String, default: '' })
 
+/*
+ * Passed on from the `<select>` inside. This component's root is the wrapper that draws the arrow,
+ * and `blur` does not bubble — so a `@blur` written on `<BaseSelect>` would land on the wrapper and
+ * never fire. Anything that wants to know when the field was left has to be handed it.
+ */
+const emit = defineEmits(['blur'])
+
 defineProps({
   id: { type: String, default: undefined },
   /** `{ value, label }` pairs, in the order they should appear. */
@@ -30,6 +37,7 @@ defineProps({
           ? 'border-red-500 focus-visible:ring-red-500/30'
           : 'border-slate-300 focus-visible:border-(--color-accent) focus-visible:ring-(--color-accent)/25',
       ]"
+      @blur="emit('blur', $event)"
     >
       <option value="" disabled>{{ placeholder }}</option>
       <option v-for="option in options" :key="option.value" :value="option.value">
