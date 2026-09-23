@@ -23,6 +23,7 @@ vi.mock('@vue-flow/core', async () => {
       fitViewOnInit: Boolean,
       nodesConnectable: { type: Boolean, default: undefined },
       nodesFocusable: { type: Boolean, default: undefined },
+      paneClickDistance: { type: Number, default: 0 },
       disableKeyboardA11y: { type: Boolean, default: false },
       deleteKeyCode: { type: [String, null], default: undefined },
     },
@@ -198,6 +199,12 @@ describe('FlowCanvas', () => {
     expect(props.nodesFocusable).toBe(false)
     // Otherwise the arrow keys would move a node inside Vue Flow, where the store never hears it.
     expect(props.disableKeyboardA11y).toBe(true)
+  })
+
+  it('lets a hand wobble while clicking the canvas, instead of calling it a pan', () => {
+    // Vue Flow allows no movement at all by default, so a pixel of drift swallows the click that
+    // would have closed the drawer.
+    expect(vueFlow(mount(FlowCanvas)).props('paneClickDistance')).toBeGreaterThan(0)
   })
 
   it('leaves a position the drag did not change alone', () => {

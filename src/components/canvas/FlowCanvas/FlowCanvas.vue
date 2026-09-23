@@ -24,6 +24,13 @@ const { setCenter, getViewport } = useVueFlow()
 
 const CENTRE_DURATION_MS = 400
 
+/*
+ * How far the pointer may wander between press and release and still count as a click rather than
+ * a pan. Vue Flow allows none at all by default, so a hand that moves a pixel while clicking the
+ * canvas pans instead — and the click that would have closed the drawer never arrives.
+ */
+const CLICK_SLOP = 4
+
 /**
  * Moves the viewport to a node, keeping the current zoom. Used after creating one, so the user sees
  * where it landed. Opening the drawer deliberately doesn't move the view (Spec 04, decision 4d).
@@ -76,6 +83,7 @@ function onNodeClick({ node }) {
     fit-view-on-init
     :nodes-connectable="false"
     :nodes-focusable="false"
+    :pane-click-distance="CLICK_SLOP"
     disable-keyboard-a11y
     :delete-key-code="null"
     :min-zoom="0.2"
