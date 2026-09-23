@@ -4,7 +4,7 @@ import { deriveEdges, normalizePayload } from '@/utils/graph'
 import { computeLayout } from '@/utils/layout'
 import { getNodeDescription, getNodeTitle } from '@/utils/nodeDescription'
 import { getNodeConfig, getNodeSize } from '@/utils/nodeRegistry'
-import { getInsertShift, positionBelow, positionBranches, shiftSubtree } from '@/utils/placement'
+import { getInsertShift, positionBelow, shiftSubtree } from '@/utils/placement'
 
 /**
  * Single source of truth for the flow graph. Vue Query only loads the payload; once it's
@@ -42,24 +42,43 @@ export const useFlowStore = defineStore('flow', () => {
 
     // Query data arrives as a reactive proxy, which structuredClone can't copy.
     const normalized = normalizePayload(toRaw(raw))
-    // Sizes come from the registry, so short branch pills sit closer than full cards.
-    const positions = computeLayout(normalized, deriveEdges(normalized), { getNodeSize })
-    nodes.value = normalized.map((node) => ({ ...node, position: positions.get(node.id) }))
+    layoutFlow(normalized)
+    nodes.value = normalized
     isHydrated.value = true
+  }
+
+  /**
+   * Arranges the given nodes as a tidy tree and writes each position. It replaces every position,
+   * including ones the user dragged, so it's only used where the shape of the tree changes.
+   * Sizes come from the registry, so short branch pills sit closer than full cards.
+   * @param {import('@/utils/graph').FlowNode[]} list
+   */
+  function layoutFlow(list) {
+    const positions = computeLayout(list, deriveEdges(list), { getNodeSize })
+    for (const node of list) {
+      node.position = positions.get(node.id)
+    }
   }
 
   /**
    * Adds created nodes to the flow, after the mutation that made them succeeded.
    *
-   * The new node goes one row below its parent. Whatever used to follow that parent is reattached
-   * below the new node (its success branch for a condition) and moved down, so the flow still reads
-   * as one line and nothing overlaps. The layout isn't re-run, so the user's own drags are kept.
+   * The new node is inserted **between** its parent and whatever used to follow that parent, so an
+   * ordinary step still has one next step. A condition (business hours) arrives with its own
+   * success and failure branches, and the flow continues on the success one.
    *
    * @param {import('@/utils/graph').RawNode[]} created  payload-shaped nodes from the API
    * @param {{ insertedId: string, continuationId: string }} placement
+   *   `insertedId` is the node the user created; `continuationId` is the node the previous
+   *   followers now hang from (the same node, or its success branch).
+   * @returns {string} the id of the created node
    */
   function insertNodes(created, { insertedId, continuationId }) {
+    // 1. Normalise what the API returned, exactly like payload nodes (string ids, copied data).
     const normalized = normalizePayload(toRaw(created))
+
+    // 2. Find the two nodes the caller named. Looking them up by id (rather than by position in
+    //    the array) means the two arguments can never drift apart from the nodes themselves.
     const inserted = normalized.find((node) => node.id === insertedId)
     const continuation = normalized.find((node) => node.id === continuationId)
     if (!inserted) throw new Error(`Created nodes do not include the new node "${insertedId}"`)
@@ -67,38 +86,48 @@ export const useFlowStore = defineStore('flow', () => {
       throw new Error(`Created nodes do not include the continuation "${continuationId}"`)
     }
 
+    // 3. Check the parent: it has to exist, and it has to be a step that can take a next step.
+    //    Business hours can't: what follows it is always its own success and failure branches.
     const parent = nodeById.value.get(inserted.parentId)
     if (!parent) throw new Error(`Cannot add a node after unknown node "${inserted.parentId}"`)
     if (!getNodeConfig(parent).canHaveChildren) {
       throw new Error(`Cannot add a node after "${parent.id}", which branches instead`)
     }
 
+    // 4. Everything the API created apart from the new node itself: a condition's two branches.
     const branches = normalized.filter((node) => node !== inserted)
-    inserted.position = positionBelow(parent, inserted)
-    positionBranches(inserted, branches).forEach((position, index) => {
-      branches[index].position = position
-    })
-
-    // Whatever followed the parent now follows the new node (its success branch for a condition),
-    // and moves by the space the insert added, so dragged branches keep their own offsets.
     const followers = nodes.value.filter((node) => node.parentId === parent.id)
-    if (followers.length) {
-      const positions = shiftSubtree(
-        nodes.value,
-        followers.map((node) => node.id),
-        getInsertShift(parent, continuation),
-      )
 
-      for (const node of nodes.value) {
-        const position = positions.get(node.id)
-        if (position) node.position = position
-      }
-      for (const follower of followers) {
-        follower.parentId = continuationId
+    // 5. Place the new node, unless a branch arrived with it (step 8 handles that case).
+    if (!branches.length) {
+      inserted.position = positionBelow(parent, inserted)
+
+      // 6. Move the steps that followed the parent down by the space the insert just added. It's a
+      //    distance, not a target, so a branch the user dragged keeps its offset and only moves down.
+      if (followers.length) {
+        const positions = shiftSubtree(
+          nodes.value,
+          followers.map((node) => node.id),
+          getInsertShift(parent, continuation),
+        )
+        for (const node of nodes.value) {
+          const position = positions.get(node.id)
+          if (position) node.position = position
+        }
       }
     }
 
+    // 7. Reattach: what followed the parent now follows the new node, or its success branch.
+    for (const follower of followers) {
+      follower.parentId = continuationId
+    }
     nodes.value.push(...normalized)
+
+    // 8. A condition is wider than the step it follows: its two branches need an extra column, so
+    //    neighbouring branches have to make room. Rather than nudging each one, the whole flow is
+    //    arranged again. This is the one case where manual positions are replaced.
+    if (branches.length) layoutFlow(nodes.value)
+
     return insertedId
   }
 

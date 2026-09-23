@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { reactive } from 'vue'
 import payload from '../../public/payload.json'
+import { getNodeSize } from '@/utils/nodeRegistry'
 import { useFlowStore } from './flow'
 
 describe('useFlowStore', () => {
@@ -135,6 +136,28 @@ describe('useFlowStore', () => {
     beforeEach(() => store.hydrate(payload))
 
     const node = (id) => store.nodeById.get(id)
+    /** Every pair of nodes whose boxes touch: the flow should never have any. */
+    const overlappingPairs = () => {
+      const boxes = store.nodes.map((n) => {
+        const size = getNodeSize(n)
+        return {
+          id: n.id,
+          left: n.position.x,
+          right: n.position.x + size.width,
+          top: n.position.y,
+          bottom: n.position.y + size.height,
+        }
+      })
+      const pairs = []
+      for (const [index, a] of boxes.entries()) {
+        for (const b of boxes.slice(index + 1)) {
+          const overlaps =
+            a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+          if (overlaps) pairs.push([a.id, b.id])
+        }
+      }
+      return pairs
+    }
     const message = (id, parentId) => ({
       id,
       parentId,
@@ -289,6 +312,32 @@ describe('useFlowStore', () => {
         addMessage('new02', 'no01')
 
         expect(node('new02').position.x).not.toBe(node('e879e4').position.x)
+      })
+
+      it('makes room for the new branch, so nothing ends up on top of anything else', () => {
+        // Adding a condition after Success used to drop its failure pill onto Add Comment #1.
+        store.insertNodes(created, { insertedId: 'bh01', continuationId: 'ok01' })
+
+        expect(overlappingPairs()).toEqual([])
+      })
+
+      it('makes room when added on a branch beside another branch', () => {
+        // The original overlap: a condition added after Success put its failure pill on top of
+        // Add Comment #1, which lives on the neighbouring failure branch.
+        const onSuccess = created.map((n) => (n.id === 'bh01' ? { ...n, parentId: '161f52' } : n))
+
+        store.insertNodes(onSuccess, { insertedId: 'bh01', continuationId: 'ok01' })
+
+        expect(overlappingPairs()).toEqual([])
+        expect(node('b0653a').parentId).toBe('ok01')
+      })
+
+      it('arranges the whole flow again, since a condition changes the tree’s width', () => {
+        store.updateNodePositions([{ id: '1', position: { x: 999, y: 999 } }])
+
+        store.insertNodes(created, { insertedId: 'bh01', continuationId: 'ok01' })
+
+        expect(node('1').position).not.toEqual({ x: 999, y: 999 })
       })
 
       it('continues the existing flow on the success branch', () => {
