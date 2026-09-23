@@ -1,3 +1,5 @@
+import { DAY_LABELS, isTimeString } from './businessHours'
+import { NODE_KIND } from './nodeKind'
 import { CREATABLE_KINDS, getNodeConfig } from './nodeRegistry'
 
 export const TITLE_MAX_LENGTH = 60
@@ -26,6 +28,20 @@ export function oneOf(value, allowed, message) {
 }
 
 /**
+ * A link the browser can actually open. `new URL` accepts things like "mailto:" and "data:", which
+ * an attachment never is, so the scheme is checked too.
+ * @returns {string|null}
+ */
+export function webUrl(value, label) {
+  try {
+    const { protocol } = new URL(trimmed(value))
+    return protocol === 'http:' || protocol === 'https:' ? null : `${label} must be a web link`
+  } catch {
+    return `${label} must be a web link`
+  }
+}
+
+/**
  * The nodes a new node can be added after. Business hours is excluded: what follows it is always
  * its success and failure branches, so a step is added after one of those instead.
  * @param {import('./graph').FlowNode[]} nodes
@@ -50,6 +66,71 @@ export function validateCreateNode(values, { allowedParentIds = [] } = {}) {
       maxLength(values.description, DESCRIPTION_MAX_LENGTH, 'Description'),
     type: oneOf(values.type, CREATABLE_KINDS, 'Choose a node type'),
     parentId: oneOf(values.parentId, allowedParentIds, 'Choose where to add the node'),
+  }
+
+  return Object.fromEntries(Object.entries(errors).filter(([, message]) => message !== null))
+}
+
+/** One message per invalid message part, keyed "parts.<index>" so the form can place them. */
+function validateParts(parts = []) {
+  if (!parts.length) return { parts: 'Add a message or an attachment' }
+
+  const errors = {}
+  parts.forEach((part, index) => {
+    const message =
+      part.type === 'attachment'
+        ? (required(part.attachment, 'A link') ?? webUrl(part.attachment, 'A link'))
+        : required(part.text, 'Message text')
+    if (message) errors[`parts.${index}`] = message
+  })
+  return errors
+}
+
+/**
+ * One message per invalid day, keyed "times.<day>". Times are wall-clock strings in the node's own
+ * timezone, so once both are known to be HH:mm they compare directly: "09:00" < "17:00". No dates
+ * and no timezone maths are involved, which is the point of storing them this way.
+ */
+function validateDays(days = []) {
+  const errors = {}
+  const open = days.filter((day) => day.isOpen)
+  if (!open.length) return { days: 'Open at least one day' }
+
+  for (const { day, startTime, endTime } of open) {
+    if (!isTimeString(startTime) || !isTimeString(endTime)) {
+      errors[`times.${day}`] = `${DAY_LABELS[day]} needs a start and an end time`
+    } else if (endTime <= startTime) {
+      errors[`times.${day}`] = `${DAY_LABELS[day]} must end after it starts`
+    }
+  }
+  return errors
+}
+
+const DRAFT_RULES = {
+  [NODE_KIND.ADD_COMMENT]: (draft) => ({ comment: required(draft.comment, 'Comment') }),
+  [NODE_KIND.SEND_MESSAGE]: (draft) => validateParts(draft.parts),
+  [NODE_KIND.BUSINESS_HOURS]: (draft) => ({
+    timezone: required(draft.timezone, 'Time zone'),
+    ...validateDays(draft.days),
+  }),
+}
+
+/**
+ * Checks an edited node. Returns a message per invalid field, so an empty object means valid.
+ * The simulated API runs this too, so bad input is rejected even if it didn't come from the form.
+ *
+ * Description is optional here, unlike on the create form: none of the payload's own nodes has one,
+ * and requiring it would block a save the user never meant to make.
+ *
+ * @param {import('./nodeEdit').Draft} draft
+ * @param {string} kind  one of NODE_KIND
+ * @returns {Record<string, string>}
+ */
+export function validateNodeDraft(draft, kind) {
+  const errors = {
+    title: required(draft.title, 'Title') ?? maxLength(draft.title, TITLE_MAX_LENGTH, 'Title'),
+    description: maxLength(draft.description, DESCRIPTION_MAX_LENGTH, 'Description'),
+    ...DRAFT_RULES[kind]?.(draft),
   }
 
   return Object.fromEntries(Object.entries(errors).filter(([, message]) => message !== null))

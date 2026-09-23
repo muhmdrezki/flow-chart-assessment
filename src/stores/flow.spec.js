@@ -412,4 +412,85 @@ describe('useFlowStore', () => {
       expect(snapshot()).toEqual(before)
     })
   })
+
+  describe('replaceNode', () => {
+    beforeEach(() => store.hydrate(payload))
+
+    it('swaps the node for the edited copy', () => {
+      const edited = { ...store.nodeById.get('e879e4'), name: 'Renamed' }
+
+      store.replaceNode(edited)
+
+      expect(store.nodeById.get('e879e4').name).toBe('Renamed')
+      expect(store.nodes).toHaveLength(7)
+    })
+
+    it('keeps the position it already had, since editing never moves a node', () => {
+      const before = { ...store.nodeById.get('e879e4').position }
+
+      store.replaceNode({ ...store.nodeById.get('e879e4'), name: 'Renamed', position: undefined })
+
+      expect(store.nodeById.get('e879e4').position).toEqual(before)
+    })
+
+    it('shows the new title on the canvas', () => {
+      store.replaceNode({ ...store.nodeById.get('e879e4'), name: 'Renamed' })
+
+      expect(store.nodeDisplayById.get('e879e4').title).toBe('Renamed')
+    })
+
+    it('ignores a node that is no longer in the flow', () => {
+      store.replaceNode({ id: 'ghost', parentId: null, type: 'addComment', data: {} })
+
+      expect(store.nodes).toHaveLength(7)
+    })
+  })
+
+  describe('removeNodes', () => {
+    beforeEach(() => store.hydrate(payload))
+
+    it('drops the nodes it is given', () => {
+      store.removeNodes({ removeIds: ['e879e4'] })
+
+      expect(store.nodeById.has('e879e4')).toBe(false)
+      expect(store.nodes).toHaveLength(6)
+    })
+
+    it('hands the orphans to their new parent, so the edge follows', () => {
+      store.removeNodes({
+        removeIds: ['b6a0c1'],
+        reparent: [{ id: 'e879e4', parentId: '28c4b9' }],
+      })
+
+      expect(store.nodeById.get('e879e4').parentId).toBe('28c4b9')
+      expect(store.edges.map((edge) => edge.id)).toContain('e-28c4b9-e879e4')
+    })
+
+    it('moves the promoted subtree up into the row that was freed', () => {
+      const before = store.nodeById.get('e879e4').position.y
+
+      store.removeNodes({
+        removeIds: ['b6a0c1'],
+        reparent: [{ id: 'e879e4', parentId: '28c4b9' }],
+        shift: { ids: ['e879e4'], dy: -100 },
+      })
+
+      expect(store.nodeById.get('e879e4').position.y).toBe(before - 100)
+    })
+
+    it('leaves every other position alone, so a dragged node stays where it was put', () => {
+      store.updateNodePositions([{ id: 'b0653a', position: { x: 999, y: 888 } }])
+
+      store.removeNodes({ removeIds: ['e879e4'] })
+
+      expect(store.nodeById.get('b0653a').position).toEqual({ x: 999, y: 888 })
+    })
+
+    it('drops a whole branch at once', () => {
+      store.removeNodes({ removeIds: ['d09c08', '161f52', '28c4b9', 'b0653a', 'b6a0c1', 'e879e4'] })
+
+      expect(store.nodes.map((node) => node.id)).toEqual(['1'])
+      expect(store.edges).toEqual([])
+    })
+  })
 })

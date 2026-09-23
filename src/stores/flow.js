@@ -142,6 +142,44 @@ export const useFlowStore = defineStore('flow', () => {
     }
   }
 
+  /**
+   * Swaps one node for an edited copy of itself. Its position is kept from the node already in the
+   * store: editing a node's fields never moves it, and the copy comes from a form that knows
+   * nothing about the canvas.
+   * @param {import('@/utils/graph').FlowNode} updated
+   */
+  function replaceNode(updated) {
+    const index = nodes.value.findIndex((node) => node.id === updated.id)
+    if (index === -1) return
+
+    nodes.value[index] = { ...updated, position: nodes.value[index].position }
+  }
+
+  /**
+   * Deletes nodes, moves whatever hung from them up to their parent, and closes the gap they left.
+   * The whole removal is worked out before this runs (`utils/nodeRemoval`), so the store only
+   * applies it — and the positions are shifted before the nodes go, while the tree is still whole.
+   * @param {import('@/utils/nodeRemoval').Removal} removal
+   */
+  function removeNodes({ removeIds, reparent = [], shift = null }) {
+    if (shift) {
+      const positions = shiftSubtree(nodes.value, shift.ids, { dy: shift.dy })
+      for (const node of nodes.value) {
+        const position = positions.get(node.id)
+        if (position) node.position = position
+      }
+    }
+
+    const gone = new Set(removeIds)
+    const newParentById = new Map(reparent.map(({ id, parentId }) => [id, parentId]))
+
+    nodes.value = nodes.value
+      .filter((node) => !gone.has(node.id))
+      .map((node) =>
+        newParentById.has(node.id) ? { ...node, parentId: newParentById.get(node.id) } : node,
+      )
+  }
+
   return {
     nodes,
     isHydrated,
@@ -151,5 +189,7 @@ export const useFlowStore = defineStore('flow', () => {
     hydrate,
     insertNodes,
     updateNodePositions,
+    replaceNode,
+    removeNodes,
   }
 })

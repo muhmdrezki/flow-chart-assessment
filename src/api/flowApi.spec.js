@@ -5,10 +5,20 @@ import {
   NodeValidationError,
   SIMULATED_LATENCY_MS,
   createNode,
+  deleteNode,
   fetchFlow,
   shouldRetryFlowFetch,
+  updateNode,
 } from './flowApi'
-import { normalizePayload } from '@/utils/graph'
+import { deriveEdges, normalizePayload } from '@/utils/graph'
+import { computeLayout } from '@/utils/layout'
+
+/** The flow as the store holds it: ids normalised and every node given a position. */
+const laidOutNodes = (() => {
+  const list = normalizePayload(payload)
+  const positions = computeLayout(list, deriveEdges(list))
+  return list.map((node) => ({ ...node, position: positions.get(node.id) }))
+})()
 
 function mockFetch({ ok = true, status = 200, json = () => Promise.resolve(payload) } = {}) {
   const fetchMock = vi.fn().mockResolvedValue({ ok, status, json })
@@ -162,5 +172,92 @@ describe('createNode', () => {
     await pending
     expect(settled).toBe(true)
     vi.useRealTimers()
+  })
+})
+
+describe('updateNode', () => {
+  const nodes = laidOutNodes
+
+  const edited = (overrides = {}) => ({
+    ...nodes.find((node) => node.id === 'e879e4'),
+    name: 'Renamed',
+    ...overrides,
+  })
+
+  it('answers with the saved node', async () => {
+    await expect(updateNode(edited(), { nodes, delayMs: 0 })).resolves.toEqual(edited())
+  })
+
+  it('answers with a copy, so the caller cannot reach into the flow', async () => {
+    const node = edited()
+    const saved = await updateNode(node, { nodes, delayMs: 0 })
+
+    expect(saved).not.toBe(node)
+    expect(saved.data).not.toBe(node.data)
+  })
+
+  it('refuses a node that is no longer in the flow', async () => {
+    await expect(updateNode(edited({ id: 'ghost' }), { nodes, delayMs: 0 })).rejects.toThrow(
+      'That step is no longer in the flow.',
+    )
+  })
+
+  it('checks the values again, even though the form already did', async () => {
+    const promise = updateNode(edited({ name: 'x'.repeat(61) }), { nodes, delayMs: 0 })
+
+    await expect(promise).rejects.toBeInstanceOf(NodeValidationError)
+    await expect(promise).rejects.toMatchObject({
+      fieldErrors: { title: 'Title must be 60 characters or fewer' },
+    })
+  })
+
+  it('accepts a node the payload never named, like the trigger', async () => {
+    // A missing name isn't missing data: the canvas and the drawer both call it by its kind.
+    const trigger = nodes.find((node) => node.id === '1')
+
+    await expect(updateNode(trigger, { nodes, delayMs: 0 })).resolves.toEqual(trigger)
+  })
+
+  it('checks the rules that belong to the kind', async () => {
+    const businessHours = nodes.find((node) => node.id === 'd09c08')
+    const broken = {
+      ...businessHours,
+      data: {
+        ...businessHours.data,
+        times: [{ day: 'mon', startTime: '17:00', endTime: '09:00' }],
+      },
+    }
+
+    await expect(updateNode(broken, { nodes, delayMs: 0 })).rejects.toMatchObject({
+      fieldErrors: { 'times.mon': 'Monday must end after it starts' },
+    })
+  })
+})
+
+describe('deleteNode', () => {
+  const nodes = laidOutNodes
+
+  it('answers with what goes and where that leaves the rest', async () => {
+    await expect(deleteNode('b6a0c1', { nodes, delayMs: 0 })).resolves.toEqual({
+      removeIds: ['b6a0c1'],
+      reparent: [{ id: 'e879e4', parentId: '28c4b9' }],
+      shift: { ids: ['e879e4'], dy: expect.any(Number) },
+    })
+  })
+
+  it('takes a condition’s branches with it', async () => {
+    const { removeIds } = await deleteNode('d09c08', { nodes, delayMs: 0 })
+
+    expect(removeIds).toHaveLength(6)
+  })
+
+  it.each([
+    ['the trigger', '1'],
+    ['a branch pill', '161f52'],
+    ['a node that is not in the flow', 'ghost'],
+  ])('refuses %s', async (_, id) => {
+    await expect(deleteNode(id, { nodes, delayMs: 0 })).rejects.toThrow(
+      "That step can't be deleted.",
+    )
   })
 })

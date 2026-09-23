@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { toDraft } from './nodeEdit'
 import {
   DESCRIPTION_MAX_LENGTH,
   TITLE_MAX_LENGTH,
@@ -7,6 +8,8 @@ import {
   oneOf,
   required,
   validateCreateNode,
+  validateNodeDraft,
+  webUrl,
 } from './validation'
 
 const VALID = {
@@ -121,6 +124,166 @@ describe('validateCreateNode', () => {
       description: 'Description is required',
       type: 'Choose a node type',
       parentId: 'Choose where to add the node',
+    })
+  })
+})
+
+describe('webUrl', () => {
+  it.each(['https://files.test/a.png', 'http://files.test/a.png'])('accepts %s', (value) => {
+    expect(webUrl(value, 'A link')).toBeNull()
+  })
+
+  it.each([
+    ['nothing', ''],
+    ['text that is not a link', 'my-file.png'],
+    ['a scheme the browser will not open', 'mailto:someone@test.com'],
+    ['an inline file', 'data:image/png;base64,iVBORw0KGgo='],
+  ])('rejects %s', (_, value) => {
+    expect(webUrl(value, 'A link')).toBe('A link must be a web link')
+  })
+})
+
+describe('validateNodeDraft', () => {
+  const draftFor = (kind, overrides = {}) => toDraft({ ...NODES[kind], ...overrides })
+
+  const NODES = {
+    trigger: { type: 'trigger', name: 'Trigger', data: { type: 'conversationOpened' } },
+    sendMessage: {
+      type: 'sendMessage',
+      name: 'Away Message',
+      data: { payload: [{ type: 'text', text: 'Hello' }] },
+    },
+    addComment: { type: 'addComment', name: 'Note', data: { comment: 'Seen it' } },
+    businessHours: {
+      type: 'dateTime',
+      name: 'Business Hours',
+      data: {
+        action: 'businessHours',
+        timezone: 'UTC',
+        times: [{ day: 'mon', startTime: '09:00', endTime: '17:00' }],
+      },
+    },
+  }
+
+  it.each(Object.keys(NODES))('accepts a valid %s', (kind) => {
+    expect(validateNodeDraft(draftFor(kind), kind)).toEqual({})
+  })
+
+  describe('the fields every node has', () => {
+    it('needs a title', () => {
+      const draft = { ...draftFor('addComment'), title: '  ' }
+
+      expect(validateNodeDraft(draft, 'addComment').title).toBe('Title is required')
+    })
+
+    it('limits the title', () => {
+      const draft = { ...draftFor('addComment'), title: 'x'.repeat(61) }
+
+      expect(validateNodeDraft(draft, 'addComment').title).toBe(
+        'Title must be 60 characters or fewer',
+      )
+    })
+
+    it('does not ask for a description, since the payload never has one', () => {
+      const draft = { ...draftFor('addComment'), description: '' }
+
+      expect(validateNodeDraft(draft, 'addComment')).toEqual({})
+    })
+
+    it('still limits the description when there is one', () => {
+      const draft = { ...draftFor('addComment'), description: 'x'.repeat(201) }
+
+      expect(validateNodeDraft(draft, 'addComment').description).toBe(
+        'Description must be 200 characters or fewer',
+      )
+    })
+  })
+
+  it('needs a comment', () => {
+    const draft = { ...draftFor('addComment'), comment: '   ' }
+
+    expect(validateNodeDraft(draft, 'addComment').comment).toBe('Comment is required')
+  })
+
+  describe('a message', () => {
+    it('needs something in it', () => {
+      const draft = { ...draftFor('sendMessage'), parts: [] }
+
+      expect(validateNodeDraft(draft, 'sendMessage').parts).toBe('Add a message or an attachment')
+    })
+
+    it('points at the part that is empty', () => {
+      const draft = {
+        ...draftFor('sendMessage'),
+        parts: [
+          { key: 'a', type: 'text', text: 'Fine' },
+          { key: 'b', type: 'text', text: '  ' },
+        ],
+      }
+
+      expect(validateNodeDraft(draft, 'sendMessage')).toEqual({
+        'parts.1': 'Message text is required',
+      })
+    })
+
+    it('checks an attachment is a link', () => {
+      const draft = {
+        ...draftFor('sendMessage'),
+        parts: [{ key: 'a', type: 'attachment', attachment: 'not-a-link' }],
+      }
+
+      expect(validateNodeDraft(draft, 'sendMessage')['parts.0']).toBe('A link must be a web link')
+    })
+  })
+
+  describe('business hours', () => {
+    const withDays = (days) => ({ ...draftFor('businessHours'), days })
+
+    it('needs at least one open day', () => {
+      const draft = withDays(
+        draftFor('businessHours').days.map((day) => ({ ...day, isOpen: false })),
+      )
+
+      expect(validateNodeDraft(draft, 'businessHours').days).toBe('Open at least one day')
+    })
+
+    it('needs an end after the start', () => {
+      const draft = withDays([{ day: 'mon', isOpen: true, startTime: '17:00', endTime: '09:00' }])
+
+      expect(validateNodeDraft(draft, 'businessHours')['times.mon']).toBe(
+        'Monday must end after it starts',
+      )
+    })
+
+    it('refuses a day that starts and ends at the same moment', () => {
+      const draft = withDays([{ day: 'mon', isOpen: true, startTime: '09:00', endTime: '09:00' }])
+
+      expect(validateNodeDraft(draft, 'businessHours')['times.mon']).toBe(
+        'Monday must end after it starts',
+      )
+    })
+
+    it('refuses a time that is not a time', () => {
+      const draft = withDays([{ day: 'tue', isOpen: true, startTime: '9am', endTime: '17:00' }])
+
+      expect(validateNodeDraft(draft, 'businessHours')['times.tue']).toBe(
+        'Tuesday needs a start and an end time',
+      )
+    })
+
+    it('ignores the days that are closed', () => {
+      const draft = withDays([
+        { day: 'mon', isOpen: true, startTime: '09:00', endTime: '17:00' },
+        { day: 'tue', isOpen: false, startTime: '17:00', endTime: '09:00' },
+      ])
+
+      expect(validateNodeDraft(draft, 'businessHours')).toEqual({})
+    })
+
+    it('needs a time zone', () => {
+      const draft = { ...draftFor('businessHours'), timezone: '' }
+
+      expect(validateNodeDraft(draft, 'businessHours').timezone).toBe('Time zone is required')
     })
   })
 })
