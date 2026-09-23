@@ -127,10 +127,10 @@ Sunday     —                                [ ] open
 - A checkbox opens or closes the day. Unchecking keeps the times on screen but greys them out, so
   re-opening a day doesn't mean typing them again; on save, a closed day is simply left out of
   `data.times`.
-- The times are `<input type="time">`. It is a real, accessible, keyboard-friendly control that every
-  target browser has, it produces exactly the `HH:mm` the payload stores, and it costs nothing —
-  where a hand-built clock popup would cost a day and be worse. The mockup's ⏱ is the native
-  control's own icon.
+- The times are pickers. The brief asks for a date-time picker on business hours, and the mockup
+  draws `HH:mm ⏱` beside each one, so each field opens a small clock menu rather than being typed
+  into. `@vuepic/vue-datepicker` provides it in time-only mode. This spec originally shipped
+  `<input type="time">`; the picker replaced it later, and the README records why.
 - A **Copy Monday to every day** shortcut, because filling seven identical rows by hand is the first
   thing anyone would complain about.
 
@@ -341,7 +341,7 @@ useDeleteNode(): { remove, isPending, error }
 | 5a  | What can be edited       | **Title and description everywhere**; comment; message parts; the grid. ~~The trigger~~ (reversed: it no longer opens) | Title/description only                     |
 | 5b  | When it saves            | **An explicit Save**, with a draft until then; closing with changes asks first                                         | Save on blur, a mutation per field         |
 | 5c  | Description when editing | **Optional** (the payload's own nodes have none)                                                                       | Required, as the create form has it        |
-| 5d  | The times                | **Native `<input type="time">`**, seven rows always, plus copy-Monday-to-all                                           | A hand-built clock popup; free-text fields |
+| 5d  | The times                | **A time picker** (native at first, `@vuepic/vue-datepicker` later), seven rows always, plus copy-Monday-to-all | A hand-built clock popup; free-text fields |
 | 5e  | The time-zone list       | **Every IANA zone** from `Intl.supportedValuesOf`, labelled with today's offset                                        | A short curated list                       |
 | 5f  | Deleting a plain step    | **Its children move up**: the chain closes                                                                             | Delete the whole subtree every time        |
 | 5g  | Deleting a condition     | **It takes both branches with it**, after a confirmation naming the count                                              | Keep the Success branch and drop Failure   |

@@ -35,6 +35,29 @@ function isTwoDigits(part) {
 }
 
 /**
+ * The payload stores a time as `HH:mm`; the date picker works in `{ hours, minutes, seconds }`.
+ * These two are the whole of that translation, so the picker's shape stops at the one component
+ * that renders it and nothing behind it — draft, validation, `data.times` — has to know.
+ *
+ * @param {string} time  "09:00"
+ * @returns {{ hours: number, minutes: number, seconds: number }|null} null when it isn't a time
+ */
+export function toClockParts(time) {
+  if (!isTimeString(time)) return null
+
+  const [hours, minutes] = time.split(':')
+  return { hours: Number(hours), minutes: Number(minutes), seconds: 0 }
+}
+
+/** The reverse, padded back to two digits each. @returns {string} "" when there is nothing to read */
+export function fromClockParts(parts) {
+  if (!parts || typeof parts.hours !== 'number' || typeof parts.minutes !== 'number') return ''
+
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${pad(parts.hours)}:${pad(parts.minutes)}`
+}
+
+/**
  * A 24-hour `HH:mm` time, as the payload stores them ("09:00", "23:59").
  * Hours run 00–23 and minutes 00–59, so "24:00", "9:00" and "09:00:00" are rejected.
  * @param {unknown} value

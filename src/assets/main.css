@@ -4,6 +4,7 @@
 @import '@vue-flow/core/dist/style.css';
 @import '@vue-flow/core/dist/theme-default.css';
 @import '@vue-flow/controls/dist/style.css';
+@import '@vuepic/vue-datepicker/dist/main.css';
 
 /*
  * Per-kind accent colours, shared by nodes and edges (the node registry names the variable for
@@ -67,4 +68,50 @@
 
 .edge--neutral {
   --edge-colour: var(--color-kind-neutral);
+}
+
+/*
+ * The date picker themed as one of ours: it draws from CSS variables, so pointing those at the
+ * tokens the rest of the app uses is enough, and no rule of theirs has to be overridden.
+ */
+.dp--theme-light {
+  --dp-border-radius: 0.5rem;
+  --dp-font-family: inherit;
+  --dp-font-size: 0.875rem;
+  --dp-input-padding: 0.375rem 0.75rem;
+  --dp-border-color: var(--color-slate-300);
+  --dp-border-color-hover: var(--color-slate-400);
+  --dp-border-color-focus: var(--color-accent);
+  --dp-primary-color: var(--color-accent);
+  --dp-text-color: var(--color-slate-900);
+  --dp-secondary-color: var(--color-slate-400);
+  --dp-icon-color: var(--color-slate-400);
+  --dp-disabled-color: var(--color-slate-50);
+  --dp-disabled-color-text: var(--color-slate-400);
+  /* A field with a message on it, in the same red the message is written in. */
+  --dp-danger-color: var(--color-red-600);
+  /* Room for the icon and the gap after it, rather than the 35px a larger default icon wants. */
+  --dp-input-icon-padding: 1.75rem;
+}
+
+/* The icon is placed flush against the border; it takes the same inset as the text beside it. */
+.dp--input-icon {
+  inset-inline-start: 0.5rem;
+}
+
+/*
+ * The picker has its own rule for a field with a message on it, but declares it above the base
+ * border rule that then overrides it. Without this the marking is a red glow and a grey border.
+ */
+.dp--input.dp--input-invalid {
+  border-color: var(--dp-danger-color);
+}
+
+/* The week has fourteen of these side by side, so each one is as narrow as its content allows. */
+.dp--main {
+  min-width: 0;
+}
+
+.dp--input {
+  min-width: 0;
 }
