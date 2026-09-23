@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory } from 'vue-router'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import payload from '../../../public/payload.json'
 import { useFlowLoader } from '@/composables/useFlowLoader'
 import { createAppRouter } from '@/router'
@@ -75,7 +76,25 @@ describe('FlowView', () => {
     await router.isReady()
   })
 
-  const mountView = () => mount(FlowView, { global: { plugins: [router] } })
+  /*
+   * Every mount is torn down: the view listens on the document for the undo shortcut, and one left
+   * mounted would go on answering keys pressed by the tests that come after it.
+   */
+  let mounted = []
+
+  afterEach(() => {
+    mounted.forEach((wrapper) => wrapper.unmount())
+    mounted = []
+  })
+
+  const mountView = () => {
+    const wrapper = mount(FlowView, {
+      // The header asks Vue Query whether anything is being written, so it needs a client.
+      global: { plugins: [router, [VueQueryPlugin, { queryClient: new QueryClient() }]] },
+    })
+    mounted.push(wrapper)
+    return wrapper
+  }
 
   it('shows the app title', () => {
     expect(mountView().find('h1').text()).toBe('Flow Builder')
@@ -279,6 +298,89 @@ describe('FlowView', () => {
       await flushPromises()
 
       expect(router.currentRoute.value.fullPath).toBe('/')
+    })
+  })
+
+  describe('undo and redo', () => {
+    const button = (wrapper, name) =>
+      wrapper
+        .findAll('header button')
+        .find((candidate) => candidate.attributes('aria-label')?.startsWith(name))
+
+    beforeEach(() => {
+      useFlowStore().hydrate(payload)
+    })
+
+    it('offers both, with nothing to take back yet', () => {
+      const wrapper = mountView()
+
+      expect(button(wrapper, 'Nothing to undo').attributes('disabled')).toBeDefined()
+      expect(button(wrapper, 'Nothing to redo').attributes('disabled')).toBeDefined()
+    })
+
+    it('says what it would take back, once something has been done', async () => {
+      const wrapper = mountView()
+      useFlowStore().removeNodes({ removeIds: ['e879e4'] })
+      await wrapper.vm.$nextTick()
+
+      const undo = button(wrapper, 'Undo')
+      expect(undo.attributes('aria-label')).toBe('Undo: Delete Add Comment #1')
+      expect(undo.attributes('disabled')).toBeUndefined()
+    })
+
+    it('takes the change back when it is clicked', async () => {
+      const wrapper = mountView()
+      useFlowStore().removeNodes({ removeIds: ['e879e4'] })
+      await wrapper.vm.$nextTick()
+
+      await button(wrapper, 'Undo').trigger('click')
+
+      expect(useFlowStore().nodes).toHaveLength(7)
+    })
+
+    it('puts it back again from the redo button', async () => {
+      const wrapper = mountView()
+      useFlowStore().removeNodes({ removeIds: ['e879e4'] })
+      await wrapper.vm.$nextTick()
+      await button(wrapper, 'Undo').trigger('click')
+
+      await button(wrapper, 'Redo').trigger('click')
+
+      expect(useFlowStore().nodes).toHaveLength(6)
+    })
+
+    it('answers the keyboard as well as the buttons', async () => {
+      mountView()
+      useFlowStore().removeNodes({ removeIds: ['e879e4'] })
+
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }),
+      )
+
+      expect(useFlowStore().nodes).toHaveLength(7)
+    })
+
+    it('still says what it would take back while a save is running', async () => {
+      // Disabled is the right state mid-save; telling a screen reader there is nothing to undo
+      // would be a lie, and it is the one thing a screen reader would hear.
+      const queryClient = new QueryClient()
+      const wrapper = mount(FlowView, {
+        global: { plugins: [router, [VueQueryPlugin, { queryClient }]] },
+      })
+      mounted.push(wrapper)
+      useFlowStore().removeNodes({ removeIds: ['e879e4'] })
+      await wrapper.vm.$nextTick()
+
+      const undo = button(wrapper, 'Undo')
+      expect(undo.attributes('aria-label')).toBe('Undo: Delete Add Comment #1')
+    })
+
+    it('offers neither until there is a flow', () => {
+      setActivePinia(createPinia())
+      useFlowLoader.mockReturnValue(loader)
+      const wrapper = mountView()
+
+      expect(button(wrapper, 'Nothing to undo')).toBeUndefined()
     })
   })
 })

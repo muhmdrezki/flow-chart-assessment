@@ -224,13 +224,15 @@ export const useFlowStore = defineStore('flow', () => {
    * @param {{ id: string, position: { x: number, y: number } }[]} updates
    */
   function updateNodePositions(updates) {
-    snapshot(
-      updates.length === 1 ? `Move ${titleOf(updates[0].id)}` : `Move ${updates.length} steps`,
-    )
+    // Nothing to remember when nothing moves: an entry that changes nothing is an Undo button that
+    // looks like it will do something and doesn't, and it throws the redo branch away for free.
+    const moving = updates.filter(({ id }) => nodeById.value.has(id))
+    if (!moving.length) return
 
-    for (const { id, position } of updates) {
-      const node = nodeById.value.get(id)
-      if (node) node.position = { x: position.x, y: position.y }
+    snapshot(moving.length === 1 ? `Move ${titleOf(moving[0].id)}` : `Move ${moving.length} steps`)
+
+    for (const { id, position } of moving) {
+      nodeById.value.get(id).position = { x: position.x, y: position.y }
     }
   }
 
@@ -260,6 +262,8 @@ export const useFlowStore = defineStore('flow', () => {
    * @param {import('@/utils/nodeRemoval').Removal} removal
    */
   function removeNodes({ removeIds, reparent = [], shift = null }) {
+    if (!removeIds.length) return
+
     // The node the user asked about comes first; the rest is whatever went with it.
     snapshot(`Delete ${titleOf(removeIds[0])}`)
 

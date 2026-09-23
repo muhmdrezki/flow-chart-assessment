@@ -1,13 +1,16 @@
 <script setup>
-import { ref, useTemplateRef } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
+import { useIsMutating } from '@tanstack/vue-query'
 import BaseButton from '@/components/ui/BaseButton/BaseButton.vue'
 import BaseIcon from '@/components/ui/BaseIcon/BaseIcon.vue'
+import BaseIconButton from '@/components/ui/BaseIconButton/BaseIconButton.vue'
 import BaseSpinner from '@/components/ui/BaseSpinner/BaseSpinner.vue'
 import EmptyState from '@/components/ui/EmptyState/EmptyState.vue'
 import FlowCanvas from '@/components/canvas/FlowCanvas/FlowCanvas.vue'
 import NodeDetailsDrawer from '@/components/drawer/NodeDetailsDrawer/NodeDetailsDrawer.vue'
 import CreateNodeDrawer from '@/components/forms/CreateNodeDrawer/CreateNodeDrawer.vue'
 import { useFlowLoader } from '@/composables/useFlowLoader'
+import { useHistoryShortcuts } from '@/composables/useHistoryShortcuts'
 import { useSelectedNode } from '@/composables/useSelectedNode'
 import { useFlowStore } from '@/stores/flow'
 
@@ -17,6 +20,25 @@ const { selectedNode, select, close } = useSelectedNode()
 
 const canvas = useTemplateRef('canvas')
 const isCreateOpen = ref(false)
+
+/*
+ * Nothing may be taken back while a write is in flight: a response landing after an undo would
+ * apply to a flow that had moved underneath it. Vue Query already counts what is running, so
+ * neither drawer has to report upwards.
+ *
+ * It only stops the buttons working. What they say stays true — "Nothing to undo" while a save is
+ * running would be a lie, and the one place a screen reader would hear it.
+ */
+const runningWrites = useIsMutating()
+const isWriting = computed(() => runningWrites.value > 0)
+const canUndo = computed(() => store.canUndo && !isWriting.value)
+const canRedo = computed(() => store.canRedo && !isWriting.value)
+
+useHistoryShortcuts({
+  undo: () => canUndo.value && store.undo(),
+  redo: () => canRedo.value && store.redo(),
+  enabled: computed(() => store.isHydrated),
+})
 
 /**
  * One panel at a time. The details drawer leaves the page usable, so the header button is still
@@ -41,10 +63,27 @@ function onCreated(nodeId) {
     >
       <h1 class="text-base font-semibold">Flow Builder</h1>
 
-      <BaseButton v-if="store.isHydrated" size="sm" @click="openCreate">
-        <BaseIcon name="plus" :size="16" />
-        Create New Node
-      </BaseButton>
+      <div v-if="store.isHydrated" class="flex items-center gap-2">
+        <BaseIconButton
+          icon="undo"
+          size="sm"
+          :label="store.canUndo ? `Undo: ${store.undoLabel}` : 'Nothing to undo'"
+          :disabled="!canUndo"
+          @click="store.undo"
+        />
+        <BaseIconButton
+          icon="redo"
+          size="sm"
+          :label="store.canRedo ? `Redo: ${store.redoLabel}` : 'Nothing to redo'"
+          :disabled="!canRedo"
+          @click="store.redo"
+        />
+
+        <BaseButton size="sm" @click="openCreate">
+          <BaseIcon name="plus" :size="16" />
+          Create New Node
+        </BaseButton>
+      </div>
     </header>
 
     <main class="relative min-h-0 flex-1">

@@ -13,7 +13,7 @@ Vue Flow · TanStack Query · Tailwind v4 · Vitest
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm run test:run   # 823 tests, single run
+npm run test:run   # 883 tests, single run
 npm run coverage   # with coverage
 npm run build      # production build
 npm run lint
@@ -35,6 +35,9 @@ Node 22.12 or newer (`.nvmrc` pins 24).
   week of opening hours with a time zone. Nothing reaches the store until Save.
 - **Delete it.** A plain step closes the chain behind it; a condition takes its branches with it,
   after saying so.
+- **Take it back.** Cmd/Ctrl+Z undoes any of the above, and the buttons say what they will undo —
+  _"Undo: Delete Away Message"_. Inside a text field the shortcut belongs to the browser, as it
+  should.
 
 Keyboard throughout: Tab reaches a step, Enter or Space opens it, Escape closes the drawer, and
 focus goes back where it came from.
@@ -120,20 +123,20 @@ own `Intl` formatter) is built once, not per keystroke.
 
 Every one of these was a decision, not an oversight.
 
-| What                          | Why                                                                                                                                                                                                                                                                          |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **The Trigger is accessible** | The brief only calls Success and Failure display-only, so the Trigger opens a drawer like anything else. Its event is read-only: the payload defines exactly one, and a select of invented events would be fiction. Its once-per-contact setting is real, so it is editable. |
-| **Delete exists**             | The brief doesn't ask for it. A flow editor that can only add felt incomplete, so it's here — with rules stated up front about what a delete takes with it.                                                                                                                  |
-| **No persistence**            | Reload and you are back to the payload. The brief doesn't ask for it, and adding `localStorage` would have meant inventing a merge story between saved state and a fetched payload. The simulated API is the honest boundary instead.                                        |
-| **No undo/redo**              | A nice-to-have in the brief, and the expensive one. Left out deliberately in favour of finishing the required work well.                                                                                                                                                     |
-| **Native time inputs**        | The mockup draws a clock icon beside each time. `<input type="time">` gives exactly that, plus keyboard entry, screen-reader support and the `HH:mm` string the payload stores. A hand-built clock popup would have cost a day and been worse.                               |
-| **Card descriptions**         | Derived per kind — the trigger's event, a message's first line, a comment, `Business Hours - UTC` — rather than the mockup's `Message:` prefix.                                                                                                                              |
+| What                          | Why                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **The Trigger is accessible** | The brief only calls Success and Failure display-only, so the Trigger opens a drawer like anything else. Its event is read-only: the payload defines exactly one, and a select of invented events would be fiction. Its once-per-contact setting is real, so it is editable.                                                                                              |
+| **Delete exists**             | The brief doesn't ask for it. A flow editor that can only add felt incomplete, so it's here — with rules stated up front about what a delete takes with it.                                                                                                                                                                                                               |
+| **No persistence**            | Reload and you are back to the payload. The brief doesn't ask for it, and adding `localStorage` would have meant inventing a merge story between saved state and a fetched payload. The simulated API is the honest boundary instead.                                                                                                                                     |
+| **Undo doesn't call the API** | It writes to the store directly. Against a real backend it would send a compensating request, which can fail and needs its own handling; here the "server" is a delay in the same tab, so a request to it would be theatre. History is per-session and is not restored on a reload — the document is the durable thing, not the history, which is how every editor works. |
+| **Native time inputs**        | The mockup draws a clock icon beside each time. `<input type="time">` gives exactly that, plus keyboard entry, screen-reader support and the `HH:mm` string the payload stores. A hand-built clock popup would have cost a day and been worse.                                                                                                                            |
+| **Card descriptions**         | Derived per kind — the trigger's event, a message's first line, a comment, `Business Hours - UTC` — rather than the mockup's `Message:` prefix.                                                                                                                                                                                                                           |
 
 ---
 
 ## Testing
 
-**823 tests across 46 files**, 98% of statements covered. Tests sit beside the code they cover.
+**883 tests across 48 files**, 98% of statements covered. Tests sit beside the code they cover.
 
 - **Utils** are tested as plain functions, edge cases included: mixed id types, missing fields,
   malformed times, a cyclic parent, an attachment with a query string.
@@ -159,8 +162,9 @@ shown you the problem.
 
 ## What I would do next
 
-- **Undo/redo**, which the store's shape already suits: every write goes through one of four
-  actions, so an inverse per action is the whole feature.
+- **Persisting the flow**, so edits survive a reload. It is one watcher on the store — persistence
+  belongs to the state, not to each action, or every new action has to remember to save. The real
+  work is deciding what happens when the saved flow and the fetched payload disagree.
 - **Guarding unsaved changes when switching steps.** Closing the drawer asks first; clicking straight
   onto another node doesn't, because the canvas is deliberately left clickable while a drawer is open.
 - **A layered layout**, if a step ever needed more than one parent. The tree walk assumes it doesn't,
