@@ -1,4 +1,4 @@
-import { X_GAP, Y_GAP } from './layout'
+import { Y_GAP } from './layout'
 import { getNodeSize } from './nodeRegistry'
 
 const centreX = (node) => node.position.x + getNodeSize(node).width / 2
@@ -14,20 +14,6 @@ export function positionBelow(parent, node) {
     x: centreX(parent) - getNodeSize(node).width / 2,
     y: bottomY(parent) + Y_GAP,
   }
-}
-
-/**
- * Positions for the branches of a condition: one row below the parent, side by side and centred
- * on it, matching the spacing the initial layout would give them.
- * @returns {{ x: number, y: number }[]}
- */
-export function positionBranches(parent, branches) {
-  const firstSlot = -(branches.length - 1) / 2
-
-  return branches.map((branch, index) => ({
-    x: centreX(parent) + (firstSlot + index) * X_GAP - getNodeSize(branch).width / 2,
-    y: bottomY(parent) + Y_GAP,
-  }))
 }
 
 /**

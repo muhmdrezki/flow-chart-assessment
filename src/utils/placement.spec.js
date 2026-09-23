@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { X_GAP, Y_GAP } from './layout'
 import { NODE_REGISTRY } from './nodeRegistry'
-import {
-  collectSubtreeIds,
-  getInsertShift,
-  positionBelow,
-  positionBranches,
-  shiftSubtree,
-} from './placement'
+import { collectSubtreeIds, getInsertShift, positionBelow, shiftSubtree } from './placement'
 
 const CARD = NODE_REGISTRY.sendMessage.size
 const PILL = NODE_REGISTRY.success.size
@@ -47,34 +41,6 @@ describe('positionBelow', () => {
   })
 })
 
-describe('positionBranches', () => {
-  const parent = card('bh', 500, 300)
-  const positions = positionBranches(parent, [pill('ok'), pill('no')])
-
-  it('puts both branches on the same row, below the parent', () => {
-    expect(positions[0].y).toBe(300 + CARD.height + Y_GAP)
-    expect(positions[1].y).toBe(positions[0].y)
-  })
-
-  it('spaces them one column apart', () => {
-    expect(positions[1].x - positions[0].x).toBe(X_GAP)
-  })
-
-  it('centres the pair on the parent', () => {
-    const middle = (positions[0].x + positions[1].x + PILL.width) / 2
-    expect(middle).toBe(centreOf(parent, CARD))
-  })
-
-  it('centres a single branch directly under the parent', () => {
-    const [only] = positionBranches(parent, [pill('ok')])
-    expect(only.x + PILL.width / 2).toBe(centreOf(parent, CARD))
-  })
-
-  it('returns nothing for no branches', () => {
-    expect(positionBranches(parent, [])).toEqual([])
-  })
-})
-
 describe('getInsertShift', () => {
   it('measures the space a node added directly below its parent takes up', () => {
     const parent = card('parent', 0, 0)
@@ -90,17 +56,16 @@ describe('getInsertShift', () => {
     expect(getInsertShift(parent, inserted).dy).toBeGreaterThan(0)
   })
 
-  it('also moves sideways when the flow continues on a branch', () => {
-    // A condition below the parent, continuing on its left-hand success branch.
+  it('also moves sideways when the flow continues on a branch beside the centre', () => {
+    // A success pill half a column to the left of the parent's centre, two rows down.
     const parent = card('parent', 0, 0)
-    const condition = card('bh', 0, CARD.height + Y_GAP)
-    const success = pill('ok', positionBranches(condition, [pill('ok'), pill('no')])[0].x, 0)
-    success.position.y = condition.position.y + CARD.height + Y_GAP
+    const parentCentre = CARD.width / 2
+    const success = pill('ok', parentCentre - X_GAP / 2 - PILL.width / 2, 2 * (CARD.height + Y_GAP))
 
     const shift = getInsertShift(parent, success)
 
     expect(shift.dx).toBe(-X_GAP / 2)
-    expect(shift.dy).toBe(2 * (CARD.height + Y_GAP) - CARD.height + PILL.height)
+    expect(shift.dy).toBe(2 * (CARD.height + Y_GAP) + PILL.height - CARD.height)
   })
 })
 

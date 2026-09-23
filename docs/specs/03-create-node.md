@@ -1,6 +1,6 @@
 # Spec 03: Create Node
 
-Status: **Confirmed 2026-09-23** (decisions 3a–3j). PR 3a (utils + store) is built; 3b–3d are next.
+Status: **Confirmed 2026-09-23** (decisions 3a–3j). PRs 3a (utils + store) and 3b (API + mutation) are built; 3c–3d are next.
 Brief: *"Add a **Create New Node** button on the page for creating nodes with the following fields:
 Title (text field), Description (text field), Type of Node (select field): Send Message
 (`sendMessage`), Add Comments (`addComment`), Business Hours (`businessHours`)."* Also: *"All input fields
@@ -118,10 +118,26 @@ before                     after inserting N after X
                               │
                               B  (y+3 rows)
 ```
-- Implemented as two small pure functions: `positionBelow(parent)` and
-  `shiftSubtree(nodes, rootIds, dy)`. Both are easy to test and explain.
-- Alternatives: re-run `computeLayout` for everything (neat, but loses drags), or drop the node at the
-  centre of the screen and let the user drag it (no overlap handling at all).
+- Implemented as small pure functions in `placement.js`: `positionBelow`, `getInsertShift` and
+  `shiftSubtree`. Each is easy to test and explain.
+- Alternative: drop the node at the centre of the screen and let the user drag it (no overlap
+  handling at all).
+
+**Except when the created node branches (confirmed 2026-09-23).** A condition is **wider** than the
+step it follows: its success and failure branches need an **extra column**, so neighbouring branches
+have to move aside. Moving only the reattached nodes isn't enough, and the new branch can land on a
+node that's already there (a real overlap we hit: adding business hours after Success put its failure
+pill on top of Add Comment #1).
+
+So **a create that adds branches re-runs `computeLayout` for the whole flow.** It's the one case
+where manual positions are replaced, and the reason is easy to state: *the shape of the tree
+changed, so the flow is arranged again*. Ordinary inserts (message, comment) still keep every
+dragged position, because they take exactly the same column as the step they were inserted above.
+
+- The alternative was to push neighbouring branches sideways by the width the new branch needs.
+  It keeps drags in every case, but it's much more code: finding the sibling branches, working out
+  how far each moves, and handling nested conditions.
+- A test asserts that **no two nodes overlap** after a condition is added, including the case above.
 
 **Where the *add button* is (the question for 3c).** There are two separate things:
 
@@ -281,7 +297,7 @@ src/utils/
   validation.js          required, maxLength, oneOf, validateCreateNode, getAllowedParents
   nodeIds.js             generateNodeId(existingIds)
   nodeFactory.js         buildNewNodes(values, ids)  → the payload-shaped node(s) from 2.4
-  placement.js           positionBelow, positionBranches, getInsertShift, shiftSubtree, collectSubtreeIds
+  placement.js           positionBelow, getInsertShift, shiftSubtree, collectSubtreeIds
   businessHours.js       + DEFAULT_TIMES (Mon–Fri 09:00–17:00)
   nodeRegistry.js        + creatable, canHaveChildren, CREATABLE_KINDS
 src/stores/flow.js       + insertNodes(created, { insertedId, continuationId })
@@ -323,16 +339,28 @@ src/views/FlowView       header "Create New Node" button + the create drawer
    stayed centred under the condition instead of under their new parent (the success branch), and a
    later insert on the failure branch landed on top of them. The shift now moves both axes.
 
-### 3.3 Stacked PRs
+### 3.3 Deviations found while building PR 3b
+
+- **The create mutation sets `networkMode: 'always'`.** The brief's client config sets it for
+  **queries** only, so mutations keep TanStack's default: when the browser reports no connection they
+  are *paused*, never settling, and the drawer would sit on "Creating…" forever. Creating a node never
+  leaves the browser, so it must always run. The brief's config is untouched; the option is set on
+  this one mutation. (Found in code review; there's a test that creates while offline.)
+- **A create that adds branches re-runs the layout** (see 2.3), so `positionBranches` is no longer
+  needed and was removed.
+- **`insertNodes` is written as a numbered walkthrough,** since the order of its steps matters: every
+  guard runs before anything changes, so a rejected insert leaves the store untouched.
+
+### 3.4 Stacked PRs
 
 | PR | Contents |
 |---|---|
-| 3a | Where does the new node connect? | ✅ A required **"Add after"** select (Business Hours excluded; pick Success/Failure instead) | Unconnected node; "+" buttons on edges |
-| 3b | "Add after" a step that already has a next step | ✅ **Insert between** (see the before/after in 2.2) | Add as a new branch |
-| 3c | Position of the new node, and where the add button is | ✅ **Below its parent**, the following steps shift down one row; the **header button** is the only add button | Re-run the full layout; drop at the screen centre; add "+" on edges as a shortcut (possible follow-up) |
-| 3d | Business Hours creation | ✅ **Also creates Success + Failure** (a condition needs both paths; inferred from the brief, see 2.4); the following steps continue under **Success** | Continue under Failure; no auto-branches |
+| 3a | This spec; validation, ids, node factory, placement utils; store `insertNodes`; + tests |
+| 3b | `flowApi.createNode`, `useCreateNode` (mutation), + tests |
+| 3c | UI kit: BaseInput, BaseTextarea, BaseSelect, FormField, BaseDrawer, + tests |
+| 3d | CreateNodeForm, the header button + drawer, centring on the new node, + tests, docs |
 
-### 3.4 Tests (outline)
+### 3.5 Tests (outline)
 - **Validation:** every rule and message; trimming; the parent rules (Business Hours not allowed).
 - **Ids:** format, uniqueness against existing ids.
 - **Factory:** each type's exact shape; business hours makes 3 nodes wired together, with `connectors`.
@@ -365,7 +393,7 @@ src/views/FlowView       header "Create New Node" button + the create drawer
 |---|---|---|---|
 | 3a | Where does the new node connect? | ✅ A required **"Add after"** select (Business Hours excluded; pick Success/Failure instead) | Unconnected node; "+" buttons on edges |
 | 3b | "Add after" a step that already has a next step | ✅ **Insert between** (see the before/after in 2.2) | Add as a new branch |
-| 3c | Position of the new node, and where the add button is | ✅ **Below its parent**, the following steps shift down one row; the **header button** is the only add button | Re-run the full layout; drop at the screen centre; "+" on edges as a later shortcut |
+| 3c | Position of the new node, and where the add button is | ✅ **Below its parent**, the following steps shift down one row, **except when the new node branches** (business hours), where the whole flow is laid out again; the **header button** is the only add button | Push neighbouring branches aside instead; drop at the screen centre; "+" on edges as a later shortcut |
 | 3d | Business Hours creation | ✅ **Also creates Success + Failure** (a condition needs both paths; inferred from the brief, see 2.4); the following steps continue under **Success** | Continue under Failure; no auto-branches |
 | 3e | Default business hours | ✅ **Mon–Fri 09:00–17:00, UTC** | Mon–Sun, like the payload |
 | 3f | New id format | ✅ **6 hex characters**, like the payload | `crypto.randomUUID()` |
