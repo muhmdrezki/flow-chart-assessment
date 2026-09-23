@@ -98,7 +98,11 @@ describe('FlowCanvas', () => {
       id: '1',
       type: 'trigger',
       position: store.nodeById.get('1').position,
-      data: { title: 'Trigger', description: 'Conversation Opened' },
+      data: {
+        title: 'Trigger',
+        description: '',
+        summary: { label: '', text: 'Conversation Opened' },
+      },
     })
   })
 

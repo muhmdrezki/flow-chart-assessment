@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, toRaw } from 'vue'
 import { deriveEdges, normalizePayload } from '@/utils/graph'
 import { computeLayout } from '@/utils/layout'
-import { getNodeDescription, getNodeTitle } from '@/utils/nodeDescription'
+import { getNodeText, getNodeTitle } from '@/utils/nodeDescription'
 import { getNodeConfig, getNodeSize } from '@/utils/nodeRegistry'
 import { getInsertShift, positionBelow, shiftSubtree } from '@/utils/placement'
 
@@ -49,10 +49,7 @@ export const useFlowStore = defineStore('flow', () => {
   const nodeDisplayById = computed(
     () =>
       new Map(
-        nodes.value.map((node) => [
-          node.id,
-          { title: getNodeTitle(node), description: getNodeDescription(node) },
-        ]),
+        nodes.value.map((node) => [node.id, { title: getNodeTitle(node), ...getNodeText(node) }]),
       ),
   )
 
