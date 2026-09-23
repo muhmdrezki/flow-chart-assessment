@@ -1,14 +1,41 @@
 <script setup>
-import { computed } from 'vue'
-import { VueFlow } from '@vue-flow/core'
+import { computed, nextTick } from 'vue'
+import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import ConnectorNode from '@/components/nodes/ConnectorNode/ConnectorNode.vue'
 import NodeCard from '@/components/nodes/NodeCard/NodeCard.vue'
 import { useFlowStore } from '@/stores/flow'
+import { getNodeSize } from '@/utils/nodeRegistry'
 import { toVueFlowEdges, toVueFlowNodes } from '@/utils/vueFlowAdapter'
 
 const store = useFlowStore()
+
+// Calling this here (above <VueFlow>) provides the same flow instance to the canvas below, so the
+// viewport can be moved from this component.
+const { setCenter, getViewport } = useVueFlow()
+
+const CENTRE_DURATION_MS = 400
+
+/**
+ * Moves the viewport to a node, keeping the current zoom. Used after creating one, so the user sees
+ * where it landed.
+ * @param {string} id
+ */
+async function focusNode(id) {
+  await nextTick()
+  const node = store.nodeById.get(id)
+  if (!node) return
+
+  const { width, height } = getNodeSize(node)
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  setCenter(node.position.x + width / 2, node.position.y + height / 2, {
+    zoom: getViewport().zoom,
+    duration: reduceMotion ? 0 : CENTRE_DURATION_MS,
+  })
+}
+
+defineExpose({ focusNode })
 
 const nodes = computed(() => toVueFlowNodes(store.nodes, store.nodeDisplayById))
 const edges = computed(() => toVueFlowEdges(store.edges, store.nodeById))
