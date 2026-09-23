@@ -6,7 +6,7 @@ import {
   TRIGGER_EVENT_LABELS,
   getNodeConfig,
   getNodeSize,
-  isEditable,
+  hasDetails,
 } from './nodeRegistry'
 
 const nodes = {
@@ -29,7 +29,7 @@ describe('NODE_REGISTRY', () => {
       label: expect.any(String),
       icon: expect.any(String),
       variant: expect.stringMatching(/^(card|pill)$/),
-      editable: expect.any(Boolean),
+      hasDetails: expect.any(Boolean),
       hasInput: expect.any(Boolean),
       canHaveChildren: expect.any(Boolean),
       creatable: expect.any(Boolean),
@@ -38,11 +38,13 @@ describe('NODE_REGISTRY', () => {
     })
   })
 
-  it('makes only the three editable types editable', () => {
-    const editable = Object.entries(NODE_REGISTRY)
-      .filter(([, config]) => config.editable)
+  it('opens a drawer for everything except the display-only kinds', () => {
+    const withDetails = Object.entries(NODE_REGISTRY)
+      .filter(([, config]) => config.hasDetails)
       .map(([kind]) => kind)
-    expect(editable.sort()).toEqual(['addComment', 'businessHours', 'sendMessage'])
+
+    // Success and failure are "purely for display" per the brief; unknown has nothing to show.
+    expect(withDetails.sort()).toEqual(['addComment', 'businessHours', 'sendMessage', 'trigger'])
   })
 
   it('draws success and failure as pills and everything else as cards', () => {
@@ -92,17 +94,17 @@ describe('getNodeSize', () => {
   })
 })
 
-describe('isEditable', () => {
+describe('hasDetails', () => {
   it.each([
-    ['trigger', false],
+    ['trigger', true],
     ['sendMessage', true],
     ['addComment', true],
     ['businessHours', true],
     ['success', false],
     ['failure', false],
     ['unknown', false],
-  ])('%s → %s', (kind, editable) => {
-    expect(isEditable(nodes[kind])).toBe(editable)
+  ])('%s → %s', (kind, expected) => {
+    expect(hasDetails(nodes[kind])).toBe(expected)
   })
 })
 

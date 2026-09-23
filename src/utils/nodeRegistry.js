@@ -8,10 +8,11 @@ const PILL_SIZE = Object.freeze({ width: 96, height: 28 })
  *
  * - `icon` is a name that `ui/BaseIcon` maps to an SVG, which keeps this file free of Vue imports.
  * - `accent` is the CSS custom property shared by the node and its outgoing edges.
- * - `editable` decides whether a node can open the details drawer. Success and failure are
- *   display-only per the brief; the trigger is display-only by our decision (Spec 04).
+ * - `hasDetails` decides whether clicking a node opens the details drawer. Success and failure are
+ *   "purely for display in the canvas" per the brief. It says nothing about *editing*: the trigger
+ *   opens a drawer whose event is read-only (Spec 04, decision 4c).
  * - `hasInput` is false for the trigger: a flow starts there, so nothing connects into it.
- * - `creatable` marks the kinds the create form offers. It is separate from `editable` so the
+ * - `creatable` marks the kinds the create form offers. It is separate from `hasDetails` so the
  *   form's type list can never offer a kind the node factory cannot build.
  * - `canHaveChildren` is false for business hours: what follows it is always its success and
  *   failure branches, so a new step is added after one of those instead.
@@ -22,7 +23,7 @@ export const NODE_REGISTRY = Object.freeze({
     label: 'Trigger',
     icon: 'zap',
     variant: 'card',
-    editable: false,
+    hasDetails: true,
     creatable: false,
     hasInput: false,
     canHaveChildren: true,
@@ -33,7 +34,7 @@ export const NODE_REGISTRY = Object.freeze({
     label: 'Send Message',
     icon: 'send',
     variant: 'card',
-    editable: true,
+    hasDetails: true,
     creatable: true,
     hasInput: true,
     canHaveChildren: true,
@@ -44,7 +45,7 @@ export const NODE_REGISTRY = Object.freeze({
     label: 'Add Comment',
     icon: 'message-square',
     variant: 'card',
-    editable: true,
+    hasDetails: true,
     creatable: true,
     hasInput: true,
     canHaveChildren: true,
@@ -55,7 +56,7 @@ export const NODE_REGISTRY = Object.freeze({
     label: 'Business Hours',
     icon: 'calendar-clock',
     variant: 'card',
-    editable: true,
+    hasDetails: true,
     creatable: true,
     hasInput: true,
     canHaveChildren: false,
@@ -66,7 +67,7 @@ export const NODE_REGISTRY = Object.freeze({
     label: 'Success',
     icon: 'check',
     variant: 'pill',
-    editable: false,
+    hasDetails: false,
     creatable: false,
     hasInput: true,
     canHaveChildren: true,
@@ -77,7 +78,7 @@ export const NODE_REGISTRY = Object.freeze({
     label: 'Failure',
     icon: 'x',
     variant: 'pill',
-    editable: false,
+    hasDetails: false,
     creatable: false,
     hasInput: true,
     canHaveChildren: true,
@@ -88,7 +89,7 @@ export const NODE_REGISTRY = Object.freeze({
     label: 'Unknown',
     icon: 'circle-help',
     variant: 'card',
-    editable: false,
+    hasDetails: false,
     creatable: false,
     hasInput: true,
     canHaveChildren: true,
@@ -122,9 +123,12 @@ export function getNodeSize(node) {
   return getNodeConfig(node).size
 }
 
-/** @param {{ type?: string, data?: Record<string, any> } | undefined} node */
-export function isEditable(node) {
-  return getNodeConfig(node).editable
+/**
+ * Whether clicking the node opens the details drawer.
+ * @param {{ type?: string, data?: Record<string, any> } | undefined} node
+ */
+export function hasDetails(node) {
+  return getNodeConfig(node).hasDetails
 }
 
 /** The kinds the create form offers: sendMessage, addComment and businessHours. */

@@ -32,11 +32,13 @@ describe('ConnectorNode', () => {
     expect(wrapper.attributes('data-kind')).toBe(type)
   })
 
-  it('is display-only', () => {
+  it('is display-only: no drawer, no tab stop, never selected', () => {
     const wrapper = mountPill('success')
 
-    expect(wrapper.attributes('data-editable')).toBe('false')
+    expect(wrapper.attributes('data-has-details')).toBe('false')
     expect(wrapper.classes()).toContain('cursor-default')
+    expect(wrapper.attributes('tabindex')).toBeUndefined()
+    expect(wrapper.attributes('role')).toBeUndefined()
   })
 
   it('sits on the branch line with an input and an output handle', () => {
@@ -50,8 +52,7 @@ describe('ConnectorNode', () => {
     ])
   })
 
-  it('highlights its border when selected', () => {
-    expect(mountPill('success', { selected: true }).classes()).toContain('border-(--accent)')
+  it('draws its border in its own accent colour', () => {
     expect(mountPill('success').classes()).toContain('border-(--accent)/40')
   })
 })
