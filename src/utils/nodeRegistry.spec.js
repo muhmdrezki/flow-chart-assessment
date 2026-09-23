@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { NODE_KIND } from './nodeKind'
 import {
+  CREATABLE_KINDS,
   NODE_REGISTRY,
   TRIGGER_EVENT_LABELS,
   getNodeConfig,
@@ -30,6 +31,8 @@ describe('NODE_REGISTRY', () => {
       variant: expect.stringMatching(/^(card|pill)$/),
       editable: expect.any(Boolean),
       hasInput: expect.any(Boolean),
+      canHaveChildren: expect.any(Boolean),
+      creatable: expect.any(Boolean),
       accent: expect.stringMatching(/^--color-kind-/),
       size: { width: expect.any(Number), height: expect.any(Number) },
     })
@@ -54,6 +57,13 @@ describe('NODE_REGISTRY', () => {
       .filter(([, config]) => !config.hasInput)
       .map(([kind]) => kind)
     expect(withoutInput).toEqual(['trigger'])
+  })
+
+  it('lets every kind have children except business hours, which branches instead', () => {
+    const withoutChildren = Object.entries(NODE_REGISTRY)
+      .filter(([, config]) => !config.canHaveChildren)
+      .map(([kind]) => kind)
+    expect(withoutChildren).toEqual(['businessHours'])
   })
 
   it('makes pills shorter than cards', () => {
@@ -103,5 +113,18 @@ describe('TRIGGER_EVENT_LABELS', () => {
 
   it('cannot be modified', () => {
     expect(Object.isFrozen(TRIGGER_EVENT_LABELS)).toBe(true)
+  })
+})
+
+describe('CREATABLE_KINDS', () => {
+  it('is built from the creatable flag, not from editability', () => {
+    const flagged = Object.entries(NODE_REGISTRY)
+      .filter(([, config]) => config.creatable)
+      .map(([kind]) => kind)
+    expect([...CREATABLE_KINDS]).toEqual(flagged)
+  })
+
+  it('lists exactly the three types the create form offers', () => {
+    expect([...CREATABLE_KINDS].sort()).toEqual(['addComment', 'businessHours', 'sendMessage'])
   })
 })
