@@ -218,6 +218,22 @@ describe('updateNode', () => {
     await expect(updateNode(trigger, { nodes, delayMs: 0 })).resolves.toEqual(trigger)
   })
 
+  it('refuses a name that is there but empty, which the canvas would paper over', async () => {
+    // The drafted title falls back to the kind's label, so this rule has to see the stored value.
+    await expect(updateNode(edited({ name: '   ' }), { nodes, delayMs: 0 })).rejects.toMatchObject({
+      fieldErrors: { title: 'Title is required' },
+    })
+  })
+
+  it('refuses a time zone that is there but empty', async () => {
+    const businessHours = nodes.find((node) => node.id === 'd09c08')
+    const broken = { ...businessHours, data: { ...businessHours.data, timezone: '' } }
+
+    await expect(updateNode(broken, { nodes, delayMs: 0 })).rejects.toMatchObject({
+      fieldErrors: { timezone: 'Time zone is required' },
+    })
+  })
+
   it('checks the rules that belong to the kind', async () => {
     const businessHours = nodes.find((node) => node.id === 'd09c08')
     const broken = {
@@ -259,5 +275,26 @@ describe('deleteNode', () => {
     await expect(deleteNode(id, { nodes, delayMs: 0 })).rejects.toThrow(
       "That step can't be deleted.",
     )
+  })
+
+  it('reads the flow as it is when it answers, not as it was when it was asked', async () => {
+    // The canvas stays usable while a delete is in flight, so a removal decided up front could be
+    // applied to a flow that has moved on since.
+    vi.useFakeTimers()
+    const live = laidOutNodes.map((node) => ({ ...node }))
+    const pending = deleteNode('b6a0c1', { nodes: live })
+
+    live.push({
+      id: 'later',
+      parentId: 'b6a0c1',
+      type: 'addComment',
+      data: {},
+      position: { x: 0, y: 900 },
+    })
+    await vi.advanceTimersByTimeAsync(SIMULATED_LATENCY_MS)
+
+    const { reparent } = await pending
+    expect(reparent.map((entry) => entry.id).sort()).toEqual(['e879e4', 'later'])
+    vi.useRealTimers()
   })
 })

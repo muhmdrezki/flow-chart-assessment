@@ -40,6 +40,18 @@ reactivity leaking into a layer that is meant to be plain data. The drawer now b
 `toRaw(node)`, and a test mounts it on a reactive node and checks what reaches the API — the kind of
 test that only gets written after the browser shows you the problem.
 
+**What the review caught**
+
+- The API's second check couldn't fail for two fields: it validated the node by drafting it, and the
+  draft fills in what the canvas would show, so a blank name passed the very guard meant to catch
+  input that never went through the form.
+- A failed delete left its message behind for good — through "Keep it", through a later successful
+  save, and it would have hidden that save's own failure.
+- The time-zone list was rebuilt on every pick: 400 zones, a formatter each, re-sorted and
+  re-rendered to change one value.
+- Messages keyed by position went stale when a message part was removed.
+- A delete worked out its consequences 400 ms before applying them, while the canvas stayed usable.
+
 **Next**
 
 - Vercel, then the README. Those two are the only required things still missing.

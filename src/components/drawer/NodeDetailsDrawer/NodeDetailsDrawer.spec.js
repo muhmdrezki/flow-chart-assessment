@@ -148,6 +148,28 @@ describe('NodeDetailsDrawer', () => {
       expect(wrapper.emitted('close')).toBeUndefined()
     })
 
+    it('drops its messages once the values they were about have changed', async () => {
+      // They are keyed by position: remove the first part and a message would otherwise end up
+      // under whichever part took its place.
+      const wrapper = mountDrawer()
+      await edit(wrapper, { title: '   ' })
+      await button(wrapper, 'Save changes').trigger('click')
+      expect(form(wrapper).props('errors').title).toBe('Title is required')
+
+      await edit(wrapper, { title: 'Renamed' })
+
+      expect(form(wrapper).props('errors')).toEqual({})
+    })
+
+    it('forgets a failed save once the user starts typing again', async () => {
+      mutation.error.value = new Error('Network down')
+      const wrapper = mountDrawer()
+
+      await edit(wrapper, { title: 'Renamed' })
+
+      expect(mutation.reset).toHaveBeenCalled()
+    })
+
     it('passes the server’s field messages to the form', () => {
       mutation.fieldErrors.value = { title: 'Title is already used' }
 
@@ -300,6 +322,18 @@ describe('NodeDetailsDrawer', () => {
 
       expect(deletion.remove).not.toHaveBeenCalled()
       expect(button(wrapper, 'Save changes')).toBeDefined()
+    })
+
+    it('forgets that a delete failed, rather than leaving the message behind', async () => {
+      // Otherwise it would still be there after a later save, and would hide that save's own
+      // message if it failed too.
+      deletion.error.value = new Error('Nope')
+      const wrapper = mountDrawer()
+      await button(wrapper, 'Delete').trigger('click')
+
+      await button(wrapper, 'Keep it').trigger('click')
+
+      expect(deletion.reset).toHaveBeenCalled()
     })
 
     it('says so when the delete fails', () => {

@@ -61,6 +61,17 @@ watch(
   },
 )
 
+/*
+ * Messages are about the values that were submitted, so editing clears them. It matters most for
+ * the ones keyed by position — a message's parts are numbered, so removing one would otherwise
+ * leave its message sitting under whichever part took its place.
+ */
+watch(draft, () => {
+  if (Object.keys(localErrors.value).length) localErrors.value = {}
+  if (error.value) reset()
+  if (deleteError.value) resetDelete()
+})
+
 const config = computed(() => (shown.value ? getNodeConfig(shown.value) : null))
 const kind = computed(() => (shown.value ? getNodeKind(shown.value) : ''))
 const title = computed(() => (shown.value ? getNodeTitle(shown.value) : ''))
@@ -130,6 +141,12 @@ async function onSave() {
   }
 }
 
+/** Backing out of a delete forgets that it failed, too: that message is no longer about anything. */
+function keepStep() {
+  isConfirmingDelete.value = false
+  resetDelete()
+}
+
 /** Closing throws away unsaved work, so it says so first. */
 function requestClose() {
   if (isDirty.value && !isConfirmingDiscard.value) {
@@ -174,12 +191,7 @@ function requestClose() {
 
       <template v-else-if="isConfirmingDelete">
         <p class="mr-auto self-center text-xs text-slate-600">{{ deleteWarning }}</p>
-        <BaseButton
-          variant="secondary"
-          size="sm"
-          :disabled="isDeleting"
-          @click="isConfirmingDelete = false"
-        >
+        <BaseButton variant="secondary" size="sm" :disabled="isDeleting" @click="keepStep">
           Keep it
         </BaseButton>
         <BaseButton variant="danger" size="sm" :loading="isDeleting" @click="onDelete">

@@ -22,10 +22,21 @@ const rowId = useId()
 const messageId = (day) => `${rowId}-${day}`
 
 /*
- * The node's own zone is included, so the select can never be missing the value it is showing —
- * a flow might name a zone this browser has never heard of.
+ * Built once: there are some 400 zones, each needing its own Intl formatter to read its offset, so
+ * rebuilding the list on every pick would re-render 400 options to change one.
  */
-const timezoneOptions = computed(() => getTimezoneOptions({ include: [timezone.value] }))
+const knownZones = getTimezoneOptions()
+
+/**
+ * The node's own zone is added when this browser has never heard of it, so the select can never be
+ * missing the value it is showing. That is the rare case; the common one reuses the list above,
+ * unchanged and un-re-rendered.
+ */
+const timezoneOptions = computed(() =>
+  knownZones.some((option) => option.value === timezone.value)
+    ? knownZones
+    : getTimezoneOptions({ include: [timezone.value] }),
+)
 
 /** Days are replaced rather than edited in place, so the parent's v-model hears every change. */
 function setDay(index, patch) {

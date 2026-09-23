@@ -238,6 +238,24 @@ useDeleteNode(): { remove, isPending, error }
   and `useSelectedNode` already replaces a URL that names a node it can't find. It just had to watch
   the node as well as the route.
 
+**What the review caught** (all fixed, in the delete PR since they span the layers):
+
+- **The API's second check couldn't fail for two fields.** It validated the node by drafting it, and
+  the draft fills in what the canvas would show — a nameless node becomes its kind's label, a missing
+  timezone becomes UTC. So `name: '   '` was accepted by the very guard that exists to catch input
+  that didn't come from the form. Where the node carries those fields, the stored values are checked.
+- **A failed delete left its message behind for good.** It was only cleared when a different node was
+  selected, so it survived "Keep it", survived a later successful save, and would have hidden that
+  save's own message if it had failed too.
+- **The time-zone list was rebuilt on every pick** — 400 zones, each needing its own `Intl` formatter,
+  re-sorted and re-rendered to change one value. It is built once now, and only rebuilt for the rare
+  zone this browser doesn't know.
+- **Messages keyed by position went stale.** Remove the first message part after a failed save and
+  its message stayed put, now sitting under the part that took its place. Editing clears them.
+- **A delete decided its consequences 400ms before applying them**, while the canvas stayed usable.
+  A step added under the doomed node in that window would have been orphaned. The removal is worked
+  out when the request answers, not when it is made.
+
 ### 3.5 Tests
 
 - **`validateNode`**: every kind's rules, an end before a start, an equal start and end, a malformed
