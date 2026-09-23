@@ -11,6 +11,10 @@ const PILL_SIZE = Object.freeze({ width: 96, height: 28 })
  * - `editable` decides whether a node can open the details drawer. Success and failure are
  *   display-only per the brief; the trigger is display-only by our decision (Spec 04).
  * - `hasInput` is false for the trigger: a flow starts there, so nothing connects into it.
+ * - `creatable` marks the kinds the create form offers. It is separate from `editable` so the
+ *   form's type list can never offer a kind the node factory cannot build.
+ * - `canHaveChildren` is false for business hours: what follows it is always its success and
+ *   failure branches, so a new step is added after one of those instead.
  * - `size` is what the layout uses, so its spacing matches what's drawn.
  */
 export const NODE_REGISTRY = Object.freeze({
@@ -19,7 +23,9 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'zap',
     variant: 'card',
     editable: false,
+    creatable: false,
     hasInput: false,
+    canHaveChildren: true,
     accent: '--color-kind-trigger',
     size: CARD_SIZE,
   },
@@ -28,7 +34,9 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'send',
     variant: 'card',
     editable: true,
+    creatable: true,
     hasInput: true,
+    canHaveChildren: true,
     accent: '--color-kind-send-message',
     size: CARD_SIZE,
   },
@@ -37,7 +45,9 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'message-square',
     variant: 'card',
     editable: true,
+    creatable: true,
     hasInput: true,
+    canHaveChildren: true,
     accent: '--color-kind-add-comment',
     size: CARD_SIZE,
   },
@@ -46,7 +56,9 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'calendar-clock',
     variant: 'card',
     editable: true,
+    creatable: true,
     hasInput: true,
+    canHaveChildren: false,
     accent: '--color-kind-business-hours',
     size: CARD_SIZE,
   },
@@ -55,7 +67,9 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'check',
     variant: 'pill',
     editable: false,
+    creatable: false,
     hasInput: true,
+    canHaveChildren: true,
     accent: '--color-kind-success',
     size: PILL_SIZE,
   },
@@ -64,7 +78,9 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'x',
     variant: 'pill',
     editable: false,
+    creatable: false,
     hasInput: true,
+    canHaveChildren: true,
     accent: '--color-kind-failure',
     size: PILL_SIZE,
   },
@@ -73,7 +89,9 @@ export const NODE_REGISTRY = Object.freeze({
     icon: 'circle-help',
     variant: 'card',
     editable: false,
+    creatable: false,
     hasInput: true,
+    canHaveChildren: true,
     accent: '--color-kind-neutral',
     size: CARD_SIZE,
   },
@@ -108,3 +126,10 @@ export function getNodeSize(node) {
 export function isEditable(node) {
   return getNodeConfig(node).editable
 }
+
+/** The kinds the create form offers: sendMessage, addComment and businessHours. */
+export const CREATABLE_KINDS = Object.freeze(
+  Object.entries(NODE_REGISTRY)
+    .filter(([, config]) => config.creatable)
+    .map(([kind]) => kind),
+)

@@ -7,6 +7,13 @@ export const WEEK_DAYS = Object.freeze(['mon', 'tue', 'wed', 'thu', 'fri', 'sat'
  */
 export const DEFAULT_TIMEZONE = 'UTC'
 
+/** A new business-hours node starts open Monday to Friday, 09:00–17:00 (Spec 03, decision 3e). */
+export const DEFAULT_TIMES = Object.freeze(
+  ['mon', 'tue', 'wed', 'thu', 'fri'].map((day) =>
+    Object.freeze({ day, startTime: '09:00', endTime: '17:00' }),
+  ),
+)
+
 /** Exactly two characters, both 0–9. Rejects "9", " 9" and "9a" (Number() would accept " 9"). */
 function isTwoDigits(part) {
   return part.length === 2 && [...part].every((char) => char >= '0' && char <= '9')

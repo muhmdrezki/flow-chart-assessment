@@ -1,5 +1,10 @@
 export const DEFAULT_NODE_SIZE = Object.freeze({ width: 240, height: 96 })
 
+/** Horizontal distance between neighbouring slot centres. Nodes created later reuse it. */
+export const X_GAP = 280
+/** Vertical space between a node's bottom and its children's top. */
+export const Y_GAP = 64
+
 /**
  * Top-down tree layout. The payload allows one parent per node, so a flow is a tree: each leaf
  * takes one horizontal slot and every parent is centred over its children.
@@ -21,7 +26,7 @@ export const DEFAULT_NODE_SIZE = Object.freeze({ width: 240, height: 96 })
 export function computeLayout(
   nodes,
   edges,
-  { xGap = 280, yGap = 64, getNodeSize = () => DEFAULT_NODE_SIZE } = {},
+  { xGap = X_GAP, yGap = Y_GAP, getNodeSize = () => DEFAULT_NODE_SIZE } = {},
 ) {
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
   const order = new Map(nodes.map((node, index) => [node.id, index]))
