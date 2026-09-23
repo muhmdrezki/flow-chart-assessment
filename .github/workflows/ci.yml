@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: Lint, test and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # The version this was built against, kept in one place for CI and for contributors.
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `ci` rather than `install`: it installs exactly what the lockfile says, and fails rather
+      # than quietly updating it.
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run test:run
+
+      # The build is checked too: a template that only fails at build time would otherwise reach
+      # the deployment, which is the next thing that happens on a push to main.
+      - run: npm run build
